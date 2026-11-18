@@ -1,0 +1,109 @@
+name: Playwright QA + AI RCA
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Optional --grep filter (e.g. @smoke, @P0, @AE-15). Empty = full suite.'
+        required: false
+        default: ''
+  schedule:
+    # 05:00 Asia/Karachi = 00:00 UTC (Pakistan has no DST). GitHub cron is UTC and only runs from
+    # the default branch; scheduled runs can start several minutes late under GitHub load.
+    - cron: '0 0 * * *'
+
+# One run per ref at a time: protects the public practice site from overlapping load.
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      WORKERS: '2'
+      BLOCK_ADS: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # commit diff is RCA evidence (changed files vs PR base)
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Static gates (type check, lint, RCA classifier self-test)
+        run: npm run typecheck && npm run lint && npm run rca:selftest
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright
+        id: tests
+        # Never stop here: diagnostics must run, and the real result is re-applied in the last step.
+        continue-on-error: true
+        env:
+          # Passed via env, never interpolated into the script, to prevent shell injection.
+          GREP: ${{ github.event.inputs.grep }}
+        run: |
+          if [ -n "$GREP" ]; then
+            npx playwright test --grep "$GREP"
+          else
+            npx playwright test
+          fi
+
+      - name: Generate deterministic failure bundle
+        if: always()
+        continue-on-error: true
+        run: npm run rca:collect
+
+      - name: RCA (AI-assisted when configured, deterministic otherwise)
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          # Secret is withheld from pull_request runs entirely (PR code is untrusted and could
+          # exfiltrate it). PRs get the model-free deterministic RCA; scheduled/manual runs on
+          # trusted branches may use the AI step.
+          AI_API_KEY: ${{ github.event_name != 'pull_request' && secrets.AI_API_KEY || '' }}
+          AI_PROVIDER: anthropic
+          AI_MODEL: ${{ vars.AI_MODEL || 'claude-sonnet-5-5' }}
+          AI_MAX_FAILURES: '5'
+        run: npm run rca:analyze
+
+      - name: Upload reports and RCA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            reports/
+            test-results/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Propagate test result
+        if: always()
+        run: |
+          echo "Test step outcome: ${{ steps.tests.outcome }}"
+          if [ "${{ steps.tests.outcome }}" != "success" ]; then
+            echo "::error::Playwright tests failed – see RCA summary in the job summary and the qa-report artifact."
+            exit 1
+          fi
