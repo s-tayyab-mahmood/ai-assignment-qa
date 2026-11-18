@@ -1,0 +1,46 @@
+{
+  "name": "ai-assignment-qa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright + TypeScript QA automation for automationexercise.com with deterministic and AI-assisted root-cause analysis",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --project=ui",
+    "test:api": "playwright test --project=api",
+    "test:integration": "playwright test --project=integration",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:p0": "playwright test --grep @P0",
+    "test:fi": "cross-env FAULT_INJECTION=1 playwright test --project=fault-injection",
+    "test:list": "playwright test --list",
+    "report": "playwright show-report reports/html",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "rca:collect": "tsx tools/rca/collect.ts",
+    "rca:analyze": "tsx tools/rca/analyze.ts",
+    "rca": "npm run rca:collect && npm run rca:analyze",
+    "stability": "tsx tools/stability/run.ts",
+    "verify": "npm run typecheck && npm run lint && npm run test:list",
+    "rca:selftest": "tsx tools/rca/selftest.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.17.0",
+    "eslint-plugin-playwright": "^2.1.0",
+    "prettier": "^3.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.18.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.0",
+    "zod": "^3.24.0"
+  }
+}
