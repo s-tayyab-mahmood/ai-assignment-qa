@@ -1,0 +1,205 @@
+/**
+ * Offline self-test of the deterministic classifier and AI guardrails against synthetic, labelled
+ * failure records (no network, no browser). Gives a repeatable "classification accuracy on known
+ * fault patterns" number for the scorecard, and guards the classifier against regressions.
+ *   npm run rca:selftest
+ * Synthetic cases are NOT evidence of real runs; real FI-01/FI-02 evidence comes from actual runs.
+ */
+import assert from 'node:assert/strict';
+import { vetAiOutput } from './ai';
+import { classifyFailure } from './classify';
+import type { Category, FailureRecord } from './types';
+
+function rec(p: Partial<FailureRecord> & { errorMessage: string }): FailureRecord {
+  const base: FailureRecord = {
+    testId: 't',
+    title: 'synthetic',
+    file: 'tests/ui/cart.spec.ts',
+    line: 1,
+    project: 'ui',
+    scenarioId: 'AE-12',
+    priority: 'P0',
+    tags: [],
+    outcome: 'unexpected',
+    attempts: [
+      { retry: 0, status: 'failed', durationMs: 1000 },
+      { retry: 1, status: 'failed', durationMs: 1000 },
+    ],
+    stackTop: [],
+    networkFailures: [],
+    consoleErrors: [],
+    cleanup: [],
+    artifacts: { trace: 'trace.zip', screenshot: 'shot.png' },
+    recentCommitsTouchingTest: [],
+    evidence: [],
+    ...p,
+  };
+  base.evidence = [
+    { id: 'E1', type: 'error', summary: base.errorMessage },
+    { id: 'E2', type: 'retry-history', summary: base.attempts.map((a) => a.status).join(',') },
+    { id: 'E3', type: 'trace', summary: 'trace', path: 'trace.zip' },
+    { id: 'E4', type: 'network', summary: base.networkFailures.length ? 'failures' : 'none' },
+    ...(base.faultInjection ? [{ id: 'E5', type: 'annotation' as const, summary: base.faultInjection }] : []),
+  ];
+  return base;
+}
+
+const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: string[] }> = [
+  {
+    name: 'FI-01 pattern: wrong expected total after test-code change',
+    expect: 'TEST_SCRIPT_DEFECT',
+    changed: ['tests/ui/cart.spec.ts'],
+    f: rec({ errorMessage: 'Error: [AE-12|P0] line total for 4 units\n\nExpected: 1500\nReceived: 2000' }),
+  },
+  {
+    name: 'FI-02 pattern: aborted request with fault-injection annotation',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: [],
+    f: rec({
+      errorMessage: 'Error: Timed out 10000ms waiting for expect(locator).toBeVisible()',
+      faultInjection: 'FI-02: route.abort(connectionfailed) on /add_to_cart/*',
+      networkFailures: [
+        {
+          data: { url: 'https://automationexercise.com/add_to_cart/1', error: 'net::ERR_CONNECTION_FAILED' },
+        },
+      ],
+    }),
+  },
+  {
+    name: 'FI-03 pattern: pass/fail alternation with delay annotation',
+    expect: 'TIMING_OR_FLAKINESS',
+    changed: [],
+    f: rec({
+      errorMessage: 'Error: Timed out 3000ms waiting for expect(locator).toBeVisible()',
+      faultInjection: 'FI-03: 6000ms delay on /add_to_cart every 2 repeats',
+    }),
+  },
+  {
+    name: 'DNS failure on the runner',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: [],
+    f: rec({
+      project: 'api',
+      errorMessage: 'Error: apiRequestContext.get: getaddrinfo ENOTFOUND automationexercise.com',
+    }),
+  },
+  {
+    name: 'Passed on retry',
+    expect: 'TIMING_OR_FLAKINESS',
+    changed: [],
+    f: rec({
+      outcome: 'flaky',
+      errorMessage: 'Error: Timed out 10000ms waiting for expect(locator).toHaveCount(1)',
+      attempts: [
+        { retry: 0, status: 'failed', durationMs: 10000 },
+        { retry: 1, status: 'passed', durationMs: 4000 },
+      ],
+    }),
+  },
+  {
+    name: 'Locator vanished, no code change',
+    expect: 'LOCATOR_OR_UI_CHANGE',
+    changed: [],
+    f: rec({
+      errorMessage:
+        "Error: Timed out 10000ms waiting for expect(locator).toBeVisible()\nwaiting for getByTestId('pay-button')",
+    }),
+  },
+  {
+    name: 'API contract drift',
+    expect: 'PRODUCT_DEFECT',
+    changed: [],
+    f: rec({
+      project: 'api',
+      errorMessage: 'Error: API https://x/api/productsList contract violation: products.0.price: Invalid',
+    }),
+  },
+  {
+    name: 'Fixture could not create account',
+    expect: 'TEST_DATA_OR_STATE',
+    changed: [],
+    f: rec({
+      errorMessage: 'Error: fixture: API account creation\nExpected: 201 Received: 400 Email already exists!',
+    }),
+  },
+  {
+    name: 'No recognisable signal',
+    expect: 'UNKNOWN',
+    changed: [],
+    f: rec({ errorMessage: 'Error: something odd happened' }),
+  },
+];
+
+let correct = 0;
+for (const c of cases) {
+  const r = classifyFailure(structuredClone(c.f), c.changed);
+  const ok = r.classification === c.expect;
+  if (ok) correct++;
+  console.log(
+    `${ok ? 'PASS' : 'FAIL'}  ${c.name}: expected ${c.expect}, got ${r.classification} (${r.confidence})`,
+  );
+  if (c.f.faultInjection)
+    assert.notEqual(r.classification, 'PRODUCT_DEFECT', 'injected fault must never be a product defect');
+  assert.equal(r.requires_human_approval, true);
+}
+
+// AI guardrails
+const fi = rec({ errorMessage: 'x', faultInjection: 'FI-02' });
+const base = { confidence: 0.9, first_failure: '', validation: '', recommended_action: '' };
+assert.match(
+  vetAiOutput(
+    {
+      ...base,
+      classification: 'PRODUCT_DEFECT',
+      hypotheses: [
+        { category: 'PRODUCT_DEFECT', score: 0.9, evidence_for: ['E1'], evidence_against: [], rationale: '' },
+      ],
+    },
+    fi,
+  ) ?? '',
+  /injected fault/,
+);
+assert.match(
+  vetAiOutput(
+    {
+      ...base,
+      classification: 'ENVIRONMENT_OR_NETWORK',
+      hypotheses: [
+        {
+          category: 'ENVIRONMENT_OR_NETWORK',
+          score: 0.9,
+          evidence_for: ['E99'],
+          evidence_against: [],
+          rationale: '',
+        },
+      ],
+    },
+    fi,
+  ) ?? '',
+  /non-existent evidence/,
+);
+assert.equal(
+  vetAiOutput(
+    {
+      ...base,
+      classification: 'ENVIRONMENT_OR_NETWORK',
+      hypotheses: [
+        {
+          category: 'ENVIRONMENT_OR_NETWORK',
+          score: 0.9,
+          evidence_for: ['E1', 'E4'],
+          evidence_against: [],
+          rationale: '',
+        },
+      ],
+    },
+    fi,
+  ),
+  null,
+);
+console.log(
+  'PASS  AI guardrails: injected-fault product claim rejected; fabricated evidence IDs rejected; valid output accepted',
+);
+
+console.log(`\nClassifier accuracy on labelled synthetic cases: ${correct}/${cases.length}`);
+if (correct !== cases.length) process.exit(1);

@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s-tayyab-mahmood/ai-assignment-qa/tools/rca/schema/rca-record.schema.json",
+  "title": "RCA record",
+  "description": "One root-cause analysis record per failing or flaky test. Runtime twin: RcaRecordSchema in tools/rca/types.ts.",
+  "type": "object",
+  "required": [
+    "scenario_id",
+    "test_id",
+    "title",
+    "classification",
+    "confidence",
+    "status",
+    "business_severity",
+    "symptom",
+    "first_failure",
+    "evidence",
+    "hypotheses",
+    "alternatives",
+    "validation",
+    "reproduction",
+    "recommended_action",
+    "owner",
+    "analysis_mode",
+    "requires_human_approval"
+  ],
+  "properties": {
+    "scenario_id": { "type": "string", "pattern": "^(AE-\\d{2}|UNMAPPED)$" },
+    "test_id": { "type": "string" },
+    "title": { "type": "string" },
+    "classification": { "$ref": "#/$defs/category" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "status": { "const": "HYPOTHESIS_PENDING_REVIEW" },
+    "business_severity": { "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE"] },
+    "symptom": { "type": "string" },
+    "first_failure": { "type": "string" },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "summary"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^E\\d+$" },
+          "type": {
+            "enum": [
+              "error",
+              "stack",
+              "trace",
+              "screenshot",
+              "video",
+              "network",
+              "console",
+              "diff",
+              "retry-history",
+              "annotation",
+              "cleanup"
+            ]
+          },
+          "summary": { "type": "string" },
+          "path": { "type": "string" }
+        }
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["category", "score", "evidence_for", "evidence_against", "rationale"],
+        "properties": {
+          "category": { "$ref": "#/$defs/category" },
+          "score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "evidence_for": { "type": "array", "items": { "type": "string" } },
+          "evidence_against": { "type": "array", "items": { "type": "string" } },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+    "alternatives": { "type": "array", "items": { "type": "string" } },
+    "validation": { "type": "string" },
+    "reproduction": { "type": "string" },
+    "recommended_action": { "type": "string" },
+    "owner": { "type": "string" },
+    "fault_injection": { "type": "string" },
+    "analysis_mode": { "enum": ["deterministic", "ai-assisted", "ai-rejected-fallback"] },
+    "ai": {
+      "type": "object",
+      "required": ["model", "agreed_with_deterministic"],
+      "properties": {
+        "model": { "type": "string" },
+        "agreed_with_deterministic": { "type": "boolean" },
+        "rejection_reason": { "type": "string" }
+      }
+    },
+    "requires_human_approval": { "const": true }
+  },
+  "$defs": {
+    "category": {
+      "enum": [
+        "PRODUCT_DEFECT",
+        "TEST_SCRIPT_DEFECT",
+        "LOCATOR_OR_UI_CHANGE",
+        "TEST_DATA_OR_STATE",
+        "ENVIRONMENT_OR_NETWORK",
+        "TIMING_OR_FLAKINESS",
+        "THIRD_PARTY_DEPENDENCY",
+        "UNKNOWN"
+      ]
+    }
+  }
+}
