@@ -57,6 +57,8 @@ export interface FailureRecord {
   networkFailures: Array<Record<string, unknown>>;
   /** First-party requests still open when the test ended, or slower than 5 s. */
   slowOrPending: Array<Record<string, unknown>>;
+  /** Completed first-party XHR/fetch calls; undefined when the run did not record them (older runs). */
+  xhrLog?: Array<Record<string, unknown>>;
   consoleErrors: Array<Record<string, unknown>>;
   cleanup: Array<Record<string, unknown>>;
   artifacts: { trace?: string; screenshot?: string; video?: string };

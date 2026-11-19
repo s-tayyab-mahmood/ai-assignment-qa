@@ -39,6 +39,7 @@ export class ProductsPage {
   async search(term: string): Promise<void> {
     await this.searchInput.fill(term);
     await this.searchButton.click();
+    await this.page.waitForURL(/\/products\?search=/, { waitUntil: 'domcontentloaded' });
     await expect(this.searchedHeading).toBeVisible();
   }
 
@@ -66,15 +67,19 @@ export class ProductsPage {
 
   async openDetails(name: string): Promise<void> {
     await this.card(name).first().getByRole('link', { name: 'View Product' }).click();
+    // Wait for DOMContentLoaded so the page's "Add to cart" handler is bound before we use it.
+    await this.page.waitForURL(/\/product_details\/\d+/, { waitUntil: 'domcontentloaded' });
   }
 
   async openCategory(parent: string, child: string): Promise<void> {
     await this.sidebar.getByRole('link', { name: parent, exact: false }).first().click();
     await this.sidebar.locator(`#${parent}`).getByRole('link', { name: child }).click();
+    await this.page.waitForURL(/\/category_products\//, { waitUntil: 'domcontentloaded' });
   }
 
   async openBrand(brand: string): Promise<void> {
     await this.brandsPanel.getByRole('link', { name: new RegExp(`${escapeRe(brand)}$`) }).click();
+    await this.page.waitForURL(/\/brand_products\//, { waitUntil: 'domcontentloaded' });
   }
 }
 

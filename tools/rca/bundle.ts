@@ -125,6 +125,8 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
 
   const network = decodeJsonAttachment(find('network-failures'));
   const slowOrPending = decodeJsonAttachment(find('slow-or-pending-requests'));
+  const xhrAttachment = find('xhr-log');
+  const xhrLog = xhrAttachment ? decodeJsonAttachment(xhrAttachment) : undefined;
   const thirdParty = decodeJsonAttachment(find('third-party-failures'));
   const consoleErrs = decodeJsonAttachment(find('console-errors'));
   const cleanup = decodeJsonAttachment(find('cleanup-log'));
@@ -170,6 +172,17 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
           .slice(0, 600)}`
       : 'no failed first-party requests recorded (ad hosts blocked by design are excluded)',
   });
+  if (xhrLog)
+    add({
+      type: 'network',
+      summary: xhrLog.length
+        ? `${xhrLog.length} completed first-party XHR call(s), last: ${xhrLog
+            .slice(-4)
+            .map((n) => JSON.stringify((n as { data?: unknown }).data ?? n))
+            .join('; ')
+            .slice(0, 500)}`
+        : 'xhr-log: no first-party XHR call completed during the test',
+    });
   if (slowOrPending.length)
     add({
       type: 'network',
@@ -220,6 +233,7 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
     stackTop,
     networkFailures: network,
     slowOrPending,
+    xhrLog,
     consoleErrors: consoleErrs,
     cleanup,
     artifacts,

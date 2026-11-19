@@ -176,6 +176,19 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    // Shape of AE-15 in the smoke run 2026-11-19 14:44: details-page "Add to cart" clicked, modal never
+    // appeared, no slow/pending request. With the XHR log, an empty log isolates "action never sent".
+    name: 'Live regression: click had no effect (no XHR sent)',
+    expect: 'TEST_SCRIPT_DEFECT',
+    changed: [],
+    f: rec({
+      errorMessage:
+        "Error: expect(locator).toBeVisible() failed\n\nLocator: locator('#cartModal').getByRole('heading', { name: 'Added!' })\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found",
+      attempts: [{ retry: 0, status: 'failed', durationMs: 15891 }],
+      xhrLog: [],
+    }),
+  },
+  {
     name: 'Passed on retry',
     expect: 'TIMING_OR_FLAKINESS',
     changed: [],

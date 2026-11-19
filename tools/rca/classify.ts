@@ -196,6 +196,23 @@ const rules: Rule[] = [
       'A first-party request was slower than usual (>5 s) but shorter than the wait: likely a synchronisation gap.',
     );
   },
+  // An element wait expired, no first-party request was slow/pending, and the XHR log shows no call
+  // at all: the triggering action never reached the server. Typical cause is interacting before the
+  // page's scripts bound their handlers (test synchronisation), not slowness or a missing element.
+  ({ f, ev, head }) => {
+    if (!f.xhrLog || f.xhrLog.length > 0 || f.slowOrPending.length) return null;
+    if (!TIMEOUT_RE.test(head) || !LOCATOR_RE.test(head)) return null;
+    const xhrEv = f.evidence
+      .filter((e) => e.type === 'network' && /xhr-log/.test(e.summary))
+      .map((e) => e.id);
+    return h(
+      'TEST_SCRIPT_DEFECT',
+      0.6,
+      [...ev('error'), ...xhrEv],
+      [],
+      'The expected UI response never appeared and no XHR was sent: the action did not reach the server. Most likely the test interacted before the page scripts were ready (synchronisation defect in the test).',
+    );
+  },
   ({ ev, head }) =>
     BROWSER_RE.test(head)
       ? h(

@@ -16,27 +16,38 @@ export class Header {
     return this.root.getByRole('link', { name });
   }
 
+  /**
+   * Click a nav link and wait until the target page's DOM is parsed. DOMContentLoaded fires only
+   * after the page's synchronous scripts ran, so jQuery click handlers (e.g. "Add to cart") are
+   * bound before the next action. Without this, on a slow site the next click could land on a
+   * button whose handler is not attached yet (observed in AE-15, 2026-11-19).
+   */
+  private async navigate(name: Parameters<Header['link']>[0], url: RegExp): Promise<void> {
+    await this.link(name).click();
+    await this.page.waitForURL(url, { waitUntil: 'domcontentloaded' });
+  }
+
   async goToProducts(): Promise<void> {
-    await this.link('Products').click();
+    await this.navigate('Products', /\/products/);
   }
 
   async goToCart(): Promise<void> {
-    await this.link('Cart').click();
+    await this.navigate('Cart', /\/view_cart/);
   }
 
   async goToLogin(): Promise<void> {
-    await this.link('Signup / Login').click();
+    await this.navigate('Signup / Login', /\/login/);
   }
 
   async goToContact(): Promise<void> {
-    await this.link('Contact us').click();
+    await this.navigate('Contact us', /\/contact_us/);
   }
 
   async logout(): Promise<void> {
-    await this.link('Logout').click();
+    await this.navigate('Logout', /\/login/);
   }
 
   async deleteAccount(): Promise<void> {
-    await this.link('Delete Account').click();
+    await this.navigate('Delete Account', /\/delete_account/);
   }
 }

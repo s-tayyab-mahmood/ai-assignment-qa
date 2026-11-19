@@ -52,6 +52,8 @@ export const test = base.extend<Fixtures>({
     const thirdParty: LogEntry[] = [];
     const started = new Map<object, { url: string; method: string; type: string; t0: number }>();
     const slow: LogEntry[] = [];
+    // Every first-party XHR/fetch: proves whether an action (e.g. "Add to cart") reached the server.
+    const xhrLog: LogEntry[] = [];
 
     page.on('console', (msg) => {
       if (msg.type() === 'error')
@@ -77,6 +79,13 @@ export const test = base.extend<Fixtures>({
       if (!r) return;
       started.delete(req);
       const ms = Date.now() - r.t0;
+      if (/xhr|fetch/.test(r.type))
+        xhrLog.push({
+          ts: now(),
+          level: 'info',
+          event: 'xhr.done',
+          data: { url: r.url, method: r.method, ms },
+        });
       if (ms > 5000)
         slow.push({ ts: now(), level: 'warn', event: 'request.slow', data: { ...r, t0: undefined, ms } });
     };
@@ -136,6 +145,7 @@ export const test = base.extend<Fixtures>({
       await attachLog(testInfo, 'third-party-failures', thirdParty.slice(0, 20));
       await attachLog(testInfo, 'slow-or-pending-requests', [...pending, ...slow].slice(0, 20));
       await attachLog(testInfo, 'console-errors', consoleErrors.slice(0, 20));
+      await attachLog(testInfo, 'xhr-log', xhrLog.slice(-30));
     }
   },
 
