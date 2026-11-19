@@ -102,13 +102,23 @@ export const test = base.extend<Fixtures>({
     });
     page.on('response', (res) => {
       const u = new URL(res.url());
-      if (res.status() >= 500 && isFirstParty(u))
-        firstParty.push({
-          ts: now(),
-          level: 'warn',
-          event: 'response.5xx',
-          data: { url: `${u.origin}${u.pathname}`, status: res.status() },
+      if (res.status() < 500 || !isFirstParty(u)) return;
+      const resourceType = res.request().resourceType();
+      firstParty.push({
+        ts: now(),
+        level: 'warn',
+        event: 'response.5xx',
+        data: { url: `${u.origin}${u.pathname}`, status: res.status(), resourceType },
+      });
+      // A 5xx for a whole page (document) means the site served an error page instead of the
+      // page under test, e.g. 503 "This website is under heavy load (queue full)" seen on
+      // 2026-11-19. Recorded as an annotation so reports and RCA show it explicitly.
+      if (resourceType === 'document' && !testInfo.annotations.some((a) => a.type === 'site-unavailable')) {
+        testInfo.annotations.push({
+          type: 'site-unavailable',
+          description: `HTTP ${res.status()} for ${u.pathname}`,
         });
+      }
     });
 
     await use(page);

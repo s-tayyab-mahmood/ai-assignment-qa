@@ -190,6 +190,12 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
       : 'no console errors recorded',
   });
   if (cleanup.length) add({ type: 'cleanup', summary: JSON.stringify(cleanup).slice(0, 400) });
+  const unavailable = ann('site-unavailable');
+  if (unavailable)
+    add({
+      type: 'network',
+      summary: `site served an error page instead of the requested page: ${unavailable}`,
+    });
   const fi = ann('fault-injection');
   if (fi) add({ type: 'annotation', summary: `fault-injection annotation present: ${fi}` });
 
@@ -205,6 +211,7 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
     tags: (spec.tags ?? []).map((t) => (t.startsWith('@') ? t : `@${t}`)),
     outcome: test.status === 'flaky' ? 'flaky' : 'unexpected',
     faultInjection: fi,
+    siteUnavailable: unavailable,
     attempts,
     errorMessage: clean(err?.message, 1200),
     errorLocation: err?.location

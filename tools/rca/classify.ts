@@ -68,7 +68,36 @@ const h = (
 
 const API_TIMEOUT_RE = /apiRequestContext\.\w+: Timeout \d+ms exceeded/i;
 
+/**
+ * 5xx responses for page URLs (not images/assets). Older bundles lack resourceType, so page-like
+ * paths are accepted too, which lets earlier runs be re-analysed with the site-unavailable rule.
+ */
+function pageErrors(f: FailureRecord): Array<Record<string, unknown>> {
+  return f.networkFailures.filter((n) => {
+    const j = JSON.stringify(n);
+    if (!/"status":5\d\d/.test(j)) return false;
+    if (/"resourceType":"document"/.test(j)) return true;
+    return !/"resourceType"/.test(j) && !/get_product_picture|\.(png|jpe?g|gif|svg|css|js|woff2?)"/i.test(j);
+  });
+}
+
 const rules: Rule[] = [
+  // The site answered a page request with a 5xx error page (e.g. 503 "under heavy load"). The page
+  // under test was never shown, so no test or product logic was exercised: environment/availability.
+  ({ f, ev }) => {
+    const docErrors = pageErrors(f);
+    if (!f.siteUnavailable && !docErrors.length) return null;
+    const unavailableEv = f.evidence
+      .filter((e) => e.type === 'network' && /error page|5xx/.test(e.summary))
+      .map((e) => e.id);
+    return h(
+      'ENVIRONMENT_OR_NETWORK',
+      0.85,
+      [...unavailableEv, ...ev('screenshot')],
+      [],
+      `The site returned an HTTP 5xx error page (${f.siteUnavailable ?? 'document request'}) instead of the page under test. The shared public site was unavailable or overloaded; nothing about the test or the product's behaviour was exercised.`,
+    );
+  },
   // Test-controlled fault injection is identified first so it can never be reported as a product defect.
   ({ f, ev, netEv }) => {
     if (!f.faultInjection) return null;
@@ -208,9 +237,11 @@ const rules: Rule[] = [
     if (!touched.length) return null;
     const assertion = VALUE_RE.test(head) || LOCATOR_RE.test(head);
     if (!assertion) return null;
+    // If the site served an error page, a changed file in the stack is coincidence, not cause.
+    const siteDown = Boolean(f.siteUnavailable) || pageErrors(f).length > 0;
     return h(
       'TEST_SCRIPT_DEFECT',
-      failingFileTouched ? 0.75 : 0.55,
+      siteDown ? 0.2 : failingFileTouched ? 0.75 : 0.55,
       [...ev('error'), ...ev('diff')],
       netEv,
       `Test code changed in this commit range (${touched.slice(0, 5).join(', ')})${failingFileTouched ? ', including the failing spec' : ''}, and the failure is an assertion/locator failure.`,

@@ -72,6 +72,7 @@ The brief fixed the priorities. The scores above justify them, and differences a
 - **Shared public site.** Workers ≤ 2 (cap 3), retries 0 locally and 1 in CI, one run per ref, one scheduled run per day.
 - **Data.** Every test creates unique users (`example.com`) and deletes them in teardown. The catalogue is read, never written. Reviews and contact messages are synthetic and clearly labelled.
 - **Payment.** The practice site only simulates payment. A non-Luhn dummy card is used.
+- **Site overload (observed 2026-11-19).** The site sometimes answers page requests with HTTP 503 "This website is under heavy load (queue full)". The page fixture records this as a `site-unavailable` annotation, and RCA classifies it as ENVIRONMENT_OR_NETWORK. Tests are not changed to tolerate it; CI's single retry and a re-run are the response. If it persists, lower `WORKERS` to 1.
 - **Site variability.** The live site can change content or be slow. Any change is caught by the oracles and classified by RCA; tests are never silently adapted.
 
 ## 7. Entry and exit criteria

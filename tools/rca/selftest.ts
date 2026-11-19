@@ -131,6 +131,23 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    // Shape taken from the live run on 2026-11-19 (AE-12b repeat 2): /view_cart answered 503 with
+    // "This website is under heavy load (queue full)"; classifier wrongly said TEST_SCRIPT_DEFECT.
+    name: 'Live regression: site served 503 error page while page object had changed',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: ['src/pages/OrderPages.ts'],
+    f: rec({
+      errorMessage:
+        "Error: expect(locator).toBeVisible() failed\n\nLocator: getByText('Proceed To Checkout').or(getByText('Cart is empty!')).first()\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found",
+      errorLocation: 'src/pages/OrderPages.ts:55:72',
+      attempts: [{ retry: 0, status: 'failed', durationMs: 16878 }],
+      siteUnavailable: 'HTTP 503 for /view_cart',
+      networkFailures: [
+        { data: { url: 'https://automationexercise.com/view_cart', status: 503, resourceType: 'document' } },
+      ],
+    }),
+  },
+  {
     name: 'Passed on retry',
     expect: 'TIMING_OR_FLAKINESS',
     changed: [],
