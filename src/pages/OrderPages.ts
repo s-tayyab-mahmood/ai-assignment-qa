@@ -94,12 +94,28 @@ export class CheckoutPage {
     this.placeOrder = page.getByRole('link', { name: 'Place Order' });
   }
 
+  /**
+   * The checkout page is fully parsed (DOMContentLoaded) and the review table has a total row.
+   * Required before any non-retrying read (allTextContents / all()): those read whatever exists at
+   * that instant. On 2026-11-19 a slow site let readAddress() return lines: [] while the other,
+   * auto-waiting fields were populated a moment later.
+   */
+  async waitReady(): Promise<void> {
+    await expect(this.page).toHaveURL(/\/checkout/);
+    await this.page.waitForLoadState('domcontentloaded');
+    await expect(this.totalAmount).toBeVisible();
+  }
+
   async lines(): Promise<CartLine[]> {
+    await this.waitReady();
     return readLines(this.reviewRows);
   }
 
   /** Structured read of an address block, so tests compare fields rather than "text present". */
   async readAddress(block: Locator): Promise<Record<string, string | string[]>> {
+    await this.waitReady();
+    // The phone line is the last item of the block: once visible, the whole block is rendered.
+    await expect(block.locator('li.address_phone')).toBeVisible();
     const text = async (sel: string) => ((await block.locator(sel).first().textContent()) ?? '').trim();
     const address1Lines = (await block.locator('li.address_address1').allTextContents()).map((t) => t.trim());
     return {

@@ -81,6 +81,21 @@ function pageErrors(f: FailureRecord): Array<Record<string, unknown>> {
   });
 }
 
+/** Network failures that can explain a failure: excludes static resources aborted by navigation. */
+function meaningfulNetworkFailures(f: FailureRecord): Array<Record<string, unknown>> {
+  return f.networkFailures.filter((n) => {
+    const j = JSON.stringify(n);
+    return !(/ERR_ABORTED/.test(j) && /"resourceType":"(image|font|script|stylesheet|media)"/.test(j));
+  });
+}
+
+/**
+ * A value assertion whose received side is empty ([] or "") for a field that should hold content
+ * signals a read that happened before the element rendered (non-retrying read), i.e. a test
+ * synchronisation defect, unless the page itself was an error page.
+ */
+const EMPTY_RECEIVED_RE = /\+\s+"?\w*"?:?\s*(Array \[\]|\[\]|"")|Received:\s*(\[\]|"")/;
+
 const rules: Rule[] = [
   // The site answered a page request with a 5xx error page (e.g. 503 "under heavy load"). The page
   // under test was never shown, so no test or product logic was exercised: environment/availability.
@@ -112,7 +127,7 @@ const rules: Rule[] = [
   },
   ({ f, ev, netEv, head }) => {
     const msg = NETWORK_RE.test(head);
-    if (!msg && f.networkFailures.length === 0) return null;
+    if (!msg && meaningfulNetworkFailures(f).length === 0) return null;
     // DNS/connection-refused errors are unambiguous: the request never reached the application.
     const score = HARD_NETWORK_RE.test(head) ? 0.8 : msg && netEv.length ? 0.7 : 0.5;
     return h(
@@ -211,6 +226,16 @@ const rules: Rule[] = [
       [...ev('error'), ...xhrEv],
       [],
       'The expected UI response never appeared and no XHR was sent: the action did not reach the server. Most likely the test interacted before the page scripts were ready (synchronisation defect in the test).',
+    );
+  },
+  ({ f, ev, head }) => {
+    if (!VALUE_RE.test(head) || !EMPTY_RECEIVED_RE.test(f.errorMessage) || f.siteUnavailable) return null;
+    return h(
+      'TEST_SCRIPT_DEFECT',
+      0.65,
+      ev('error'),
+      [],
+      'Received an empty value for a field that should hold content while the assertion did not time out: the value was most likely read before the element rendered (a non-retrying read such as allTextContents()). Synchronisation defect in the test.',
     );
   },
   ({ ev, head }) =>
@@ -397,7 +422,12 @@ export function classifyFailure(f: FailureRecord, changed: string[]): RcaRecord 
     });
   }
   const ev = (type: string) => f.evidence.filter((e) => e.type === type).map((e) => e.id);
-  const netEv = f.networkFailures.length ? ev('network') : [];
+  const meaningful = meaningfulNetworkFailures(f);
+  const netEv = meaningful.length
+    ? ev('network').filter(
+        (id) => !/xhr-log|slow|pending|error page/.test(f.evidence.find((e) => e.id === id)?.summary ?? ''),
+      )
+    : [];
   const head = messageHead(f.errorMessage);
   // A changed file is only relevant if it is the failing spec or appears in the failure's stack.
   const trail = norm([f.file, f.errorLocation ?? '', ...f.stackTop, f.errorMessage].join('\n'));

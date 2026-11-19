@@ -189,6 +189,27 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    // Shape of AE-15 in the run 2026-11-19 14:53: address lines read as [] while the other fields
+    // matched; network log held only fonts aborted by navigation. RCA said ENVIRONMENT (0.50).
+    name: 'Live regression: empty value from a read before render',
+    expect: 'TEST_SCRIPT_DEFECT',
+    changed: [],
+    f: rec({
+      errorMessage:
+        'Error: [AE-15|P0] delivery address = fixture\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 5\n+ Received  + 1\n\n  Object {\n    "country": "Canada",\n-   "lines": Array [\n-     "QA Practice Ltd",\n-   ],\n+   "lines": Array [],\n  }',
+      networkFailures: [
+        {
+          data: {
+            url: 'https://automationexercise.com/static/fonts/fontawesome-webfont.woff',
+            resourceType: 'font',
+            error: 'net::ERR_ABORTED',
+          },
+        },
+      ],
+      xhrLog: [{ data: { url: 'https://automationexercise.com/add_to_cart/2', ms: 395 } }],
+    }),
+  },
+  {
     name: 'Passed on retry',
     expect: 'TIMING_OR_FLAKINESS',
     changed: [],

@@ -95,8 +95,9 @@ export const test = base.extend<Fixtures>({
       const u = new URL(req.url());
       const error = req.failure()?.errorText ?? 'unknown';
       if (error.includes('BLOCKED_BY_CLIENT')) return; // our own ad blocking – expected, not evidence
-      // Images aborted when the page navigates away are browser housekeeping, not evidence.
-      if (error.includes('ERR_ABORTED') && req.resourceType() === 'image') return;
+      // Static resources (images, fonts, scripts, styles) aborted when the page navigates away are
+      // browser housekeeping, not evidence. Aborted documents/XHRs are still recorded.
+      if (error.includes('ERR_ABORTED') && !/document|xhr|fetch/.test(req.resourceType())) return;
       const entry: LogEntry = {
         ts: now(),
         level: 'warn',
