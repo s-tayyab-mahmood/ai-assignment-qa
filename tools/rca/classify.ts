@@ -49,6 +49,8 @@ const h = (
   rationale,
 });
 
+const API_TIMEOUT_RE = /apiRequestContext\.\w+: Timeout \d+ms exceeded/i;
+
 const rules: Rule[] = [
   // Test-controlled fault injection is identified first so it can never be reported as a product defect.
   ({ f, ev, netEv }) => {
@@ -75,6 +77,31 @@ const rules: Rule[] = [
       HARD_NETWORK_RE.test(f.errorMessage)
         ? 'The request failed at DNS/connection level, so the application never answered; a product defect cannot be inferred.'
         : 'Network-level errors were recorded during the test (failed requests and/or net:: error codes).',
+    );
+  },
+  // API call got no response within the request timeout. Competing causes: slow/overloaded public
+  // site (environment) vs. the endpoint hanging on this specific input (product). Isolated re-runs
+  // decide: times out every time while other endpoints answer => product candidate.
+  ({ f, ev }) => {
+    if (!API_TIMEOUT_RE.test(f.errorMessage)) return null;
+    const everyAttempt = f.attempts.length > 1 && f.attempts.every((a) => a.status !== 'passed');
+    return h(
+      'ENVIRONMENT_OR_NETWORK',
+      everyAttempt ? 0.45 : 0.55,
+      [...ev('error'), ...ev('retry-history')],
+      [],
+      'The server did not answer within the request timeout. On a shared public site, transient slowness is the most likely cause; re-run in isolation to confirm.',
+    );
+  },
+  ({ f, ev }) => {
+    if (!API_TIMEOUT_RE.test(f.errorMessage)) return null;
+    const everyAttempt = f.attempts.length > 1 && f.attempts.every((a) => a.status !== 'passed');
+    return h(
+      'PRODUCT_DEFECT',
+      everyAttempt ? 0.4 : 0.25,
+      [...ev('error'), ...ev('retry-history')],
+      [],
+      'Alternative: the endpoint may hang for this specific input (e.g. a missing parameter) instead of returning its documented error. Supported only if it times out on every isolated re-run while other endpoints respond.',
     );
   },
   ({ f, ev }) =>

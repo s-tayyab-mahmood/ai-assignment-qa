@@ -15,8 +15,9 @@ const RULES: ReadonlyArray<[RegExp, string]> = [
   [/\b(?:\d[ -]?){13,19}\b/g, '[REDACTED_PAN]'],
   // Email addresses (test data is synthetic, but still not needed by the model)
   [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]'],
-  // Phone-like numbers
-  [/\+?\d[\d\s()-]{8,}\d/g, '[REDACTED_PHONE]'],
+  // Phone-like numbers (10 digits, optional country code/separators). Deliberately does NOT match
+  // ISO timestamps like 2026-11-19T13:54:18Z – an earlier, broader pattern redacted log dates.
+  [/(?<![\d-])(?:\+\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4}(?![\d-])/g, '[REDACTED_PHONE]'],
 ];
 
 export function redactText(input: string): string {

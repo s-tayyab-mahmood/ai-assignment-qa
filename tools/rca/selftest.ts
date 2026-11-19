@@ -84,6 +84,17 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    name: 'API request timeout on a single attempt',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: [],
+    f: rec({
+      project: 'api',
+      errorMessage: 'TimeoutError: apiRequestContext.fetch: Timeout 15000ms exceeded.',
+      attempts: [{ retry: 0, status: 'timedOut', durationMs: 15000 }],
+      artifacts: { trace: 'trace.zip' },
+    }),
+  },
+  {
     name: 'Passed on retry',
     expect: 'TIMING_OR_FLAKINESS',
     changed: [],
