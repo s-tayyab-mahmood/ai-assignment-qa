@@ -15,7 +15,7 @@ const NETWORK_RE =
 const LOCATOR_RE =
   /waiting for (locator|getBy)|resolved to 0 elements|element\(s\) not found|strict mode violation|toBeVisible|toHaveCount/i;
 const VALUE_RE = /Expected:|Received:|toEqual|toBe\(|toHaveText|toContain/;
-const TIMEOUT_RE = /Timeout \d+ms exceeded|Test timeout of \d+ms exceeded|Timed out \d+ms/i;
+const TIMEOUT_RE = /Timeout:? \d+ms( exceeded)?|Test timeout of \d+ms exceeded|Timed out \d+ms/i;
 const CONTRACT_RE = /contract violation|returned non-JSON/i;
 const DATA_RE =
   /fixture: API account creation|Email already exists|User not found|account\.cleanup\.(failed|error)/i;
@@ -24,8 +24,25 @@ const THIRD_PARTY_RE =
 const BROWSER_RE = /Executable doesn't exist|browserType\.launch|Host system is missing dependencies/i;
 
 const TEST_CODE_RE = /^(tests|src)\//;
+const norm = (p: string) => p.replace(/\\/g, '/');
+
+/**
+ * The part of the error message that describes the failure, without the source-code frame and
+ * call log. Matching rules against the code frame caused false locator signals on the first live
+ * run (a goto timeout matched "toBeVisible" from the next source line).
+ */
+export function messageHead(msg: string): string {
+  return (msg.split(/\n\s*>?\s*\d+ \||\n\s+at /)[0] ?? msg).slice(0, 600);
+}
+
+const NAV_TIMEOUT_RE =
+  /page\.(goto|waitForURL|reload): Timeout \d+ms exceeded|waiting until "(load|domcontentloaded)"/i;
 
 interface Ctx {
+  /** messageHead() of the error – rules match against this, never the full message. */
+  head: string;
+  /** Changed files that actually appear in the failure's path (spec, stack frames, error location). */
+  relevantChanges: string[];
   f: FailureRecord;
   changed: string[];
   ev: (type: string) => string[];
@@ -64,17 +81,17 @@ const rules: Rule[] = [
       `Test carries a fault-injection annotation (${f.faultInjection}). The failure is test-controlled; it is not evidence about the product.`,
     );
   },
-  ({ f, ev, netEv }) => {
-    const msg = NETWORK_RE.test(f.errorMessage);
+  ({ f, ev, netEv, head }) => {
+    const msg = NETWORK_RE.test(head);
     if (!msg && f.networkFailures.length === 0) return null;
     // DNS/connection-refused errors are unambiguous: the request never reached the application.
-    const score = HARD_NETWORK_RE.test(f.errorMessage) ? 0.8 : msg && netEv.length ? 0.7 : 0.5;
+    const score = HARD_NETWORK_RE.test(head) ? 0.8 : msg && netEv.length ? 0.7 : 0.5;
     return h(
       'ENVIRONMENT_OR_NETWORK',
       score,
       [...(msg ? ev('error') : []), ...netEv],
       [],
-      HARD_NETWORK_RE.test(f.errorMessage)
+      HARD_NETWORK_RE.test(head)
         ? 'The request failed at DNS/connection level, so the application never answered; a product defect cannot be inferred.'
         : 'Network-level errors were recorded during the test (failed requests and/or net:: error codes).',
     );
@@ -82,8 +99,8 @@ const rules: Rule[] = [
   // API call got no response within the request timeout. Competing causes: slow/overloaded public
   // site (environment) vs. the endpoint hanging on this specific input (product). Isolated re-runs
   // decide: times out every time while other endpoints answer => product candidate.
-  ({ f, ev }) => {
-    if (!API_TIMEOUT_RE.test(f.errorMessage)) return null;
+  ({ f, ev, head }) => {
+    if (!API_TIMEOUT_RE.test(head)) return null;
     const everyAttempt = f.attempts.length > 1 && f.attempts.every((a) => a.status !== 'passed');
     return h(
       'ENVIRONMENT_OR_NETWORK',
@@ -93,8 +110,8 @@ const rules: Rule[] = [
       'The server did not answer within the request timeout. On a shared public site, transient slowness is the most likely cause; re-run in isolation to confirm.',
     );
   },
-  ({ f, ev }) => {
-    if (!API_TIMEOUT_RE.test(f.errorMessage)) return null;
+  ({ f, ev, head }) => {
+    if (!API_TIMEOUT_RE.test(head)) return null;
     const everyAttempt = f.attempts.length > 1 && f.attempts.every((a) => a.status !== 'passed');
     return h(
       'PRODUCT_DEFECT',
@@ -104,8 +121,34 @@ const rules: Rule[] = [
       'Alternative: the endpoint may hang for this specific input (e.g. a missing parameter) instead of returning its documented error. Supported only if it times out on every isolated re-run while other endpoints respond.',
     );
   },
-  ({ f, ev }) =>
-    BROWSER_RE.test(f.errorMessage)
+  // Page navigation did not complete: the site (or a resource it loads) was slow. Not a locator issue.
+  ({ ev, netEv, head }) =>
+    NAV_TIMEOUT_RE.test(head)
+      ? h(
+          'ENVIRONMENT_OR_NETWORK',
+          0.6,
+          [...ev('error'), ...netEv],
+          [],
+          'Navigation timed out before the page finished loading; the page was never ready for interaction, so neither locators nor product logic were reached.',
+        )
+      : null,
+  // A first-party request was slow or still open when an element wait timed out: the UI was waiting
+  // on the server, which points to slowness/synchronisation, not a missing element.
+  ({ f, ev, head }) => {
+    if (!f.slowOrPending.length || !TIMEOUT_RE.test(head)) return null;
+    const pendingEv = f.evidence
+      .filter((e) => e.type === 'network' && /slow|pending/.test(e.summary))
+      .map((e) => e.id);
+    return h(
+      'TIMING_OR_FLAKINESS',
+      0.65,
+      [...ev('error'), ...pendingEv],
+      [],
+      'A first-party request was still pending or took >5 s when the wait expired: the page was waiting on a slow server response.',
+    );
+  },
+  ({ ev, head }) =>
+    BROWSER_RE.test(head)
       ? h(
           'ENVIRONMENT_OR_NETWORK',
           0.85,
@@ -114,8 +157,8 @@ const rules: Rule[] = [
           'Browser could not be launched – CI/runner setup problem.',
         )
       : null,
-  ({ f, ev }) =>
-    THIRD_PARTY_RE.test(f.errorMessage)
+  ({ ev, head }) =>
+    THIRD_PARTY_RE.test(head)
       ? h(
           'THIRD_PARTY_DEPENDENCY',
           0.65,
@@ -124,8 +167,8 @@ const rules: Rule[] = [
           'Failure text references ad/vignette iframes from third-party ad hosts.',
         )
       : null,
-  ({ f, ev, netEv }) =>
-    CONTRACT_RE.test(f.errorMessage)
+  ({ ev, netEv, head }) =>
+    CONTRACT_RE.test(head)
       ? h(
           'PRODUCT_DEFECT',
           0.55,
@@ -134,8 +177,8 @@ const rules: Rule[] = [
           'API response violated its validated contract (schema mismatch). Could be a real API change; confirm against the live endpoint before raising a defect.',
         )
       : null,
-  ({ f, ev }) =>
-    DATA_RE.test(f.errorMessage) || f.cleanup.some((c) => /failed|error/.test(JSON.stringify(c)))
+  ({ f, ev, head }) =>
+    DATA_RE.test(head) || f.cleanup.some((c) => /failed|error/.test(JSON.stringify(c)))
       ? h(
           'TEST_DATA_OR_STATE',
           0.6,
@@ -157,11 +200,13 @@ const rules: Rule[] = [
     );
   },
   // Changed test code + assertion/locator failure → script defect.
-  ({ f, changed, ev, netEv }) => {
-    const touched = changed.filter((p) => TEST_CODE_RE.test(p));
-    const failingFileTouched = changed.some((p) => p.endsWith(f.file) || f.file.endsWith(p));
+  ({ f, ev, netEv, head, relevantChanges }) => {
+    const touched = relevantChanges;
+    const failingFileTouched = touched.some(
+      (p) => norm(p).endsWith(norm(f.file)) || norm(f.file).endsWith(norm(p)),
+    );
     if (!touched.length) return null;
-    const assertion = VALUE_RE.test(f.errorMessage) || LOCATOR_RE.test(f.errorMessage);
+    const assertion = VALUE_RE.test(head) || LOCATOR_RE.test(head);
     if (!assertion) return null;
     return h(
       'TEST_SCRIPT_DEFECT',
@@ -172,9 +217,9 @@ const rules: Rule[] = [
     );
   },
   // Locator not found, no test-code change → UI change on the site.
-  ({ f, changed, ev }) => {
-    if (!LOCATOR_RE.test(f.errorMessage) || !TIMEOUT_RE.test(f.errorMessage)) return null;
-    const touched = changed.some((p) => TEST_CODE_RE.test(p));
+  ({ ev, head, relevantChanges }) => {
+    if (!LOCATOR_RE.test(head) || !TIMEOUT_RE.test(head)) return null;
+    const touched = relevantChanges.length > 0;
     return h(
       'LOCATOR_OR_UI_CHANGE',
       touched ? 0.3 : 0.5,
@@ -184,9 +229,9 @@ const rules: Rule[] = [
     );
   },
   // Value mismatch with no code change and clean network → candidate product defect.
-  ({ f, changed, ev }) => {
-    if (!VALUE_RE.test(f.errorMessage) || TIMEOUT_RE.test(f.errorMessage)) return null;
-    const touched = changed.some((p) => TEST_CODE_RE.test(p));
+  ({ f, ev, head, relevantChanges }) => {
+    if (!VALUE_RE.test(head) || TIMEOUT_RE.test(head)) return null;
+    const touched = relevantChanges.length > 0;
     return h(
       'PRODUCT_DEFECT',
       touched || f.networkFailures.length ? 0.25 : 0.45,
@@ -195,8 +240,8 @@ const rules: Rule[] = [
       'Deterministic value mismatch against a computed/API oracle with no test-code change. Must be reproduced manually before being reported as a product defect.',
     );
   },
-  ({ f, ev }) =>
-    TIMEOUT_RE.test(f.errorMessage)
+  ({ ev, head }) =>
+    TIMEOUT_RE.test(head)
       ? h(
           'TIMING_OR_FLAKINESS',
           0.3,
@@ -283,7 +328,13 @@ export function classifyFailure(f: FailureRecord, changed: string[]): RcaRecord 
   }
   const ev = (type: string) => f.evidence.filter((e) => e.type === type).map((e) => e.id);
   const netEv = f.networkFailures.length ? ev('network') : [];
-  const ctx: Ctx = { f, changed, ev, netEv };
+  const head = messageHead(f.errorMessage);
+  // A changed file is only relevant if it is the failing spec or appears in the failure's stack.
+  const trail = norm([f.file, f.errorLocation ?? '', ...f.stackTop, f.errorMessage].join('\n'));
+  const relevantChanges = changed
+    .filter((p) => TEST_CODE_RE.test(norm(p)))
+    .filter((p) => trail.includes(norm(p)) || trail.includes(norm(p).replace(/^(tests|src)\//, '')));
+  const ctx: Ctx = { f, changed, ev, netEv, head, relevantChanges };
 
   // Keep the best hypothesis per category.
   const byCat = new Map<Category, Hypothesis>();

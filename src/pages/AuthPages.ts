@@ -30,7 +30,7 @@ export class LoginPage {
   }
 
   async open(): Promise<void> {
-    await this.page.goto('/login');
+    await this.page.goto('/login', { waitUntil: 'domcontentloaded' });
     await expect(this.loginHeading).toBeVisible();
   }
 

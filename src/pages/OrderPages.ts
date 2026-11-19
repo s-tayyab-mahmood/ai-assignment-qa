@@ -45,7 +45,14 @@ export class CartPage {
   }
 
   async open(): Promise<void> {
-    await this.page.goto('/view_cart');
+    await this.page.goto('/view_cart', { waitUntil: 'domcontentloaded' });
+    await this.waitReady();
+  }
+
+  /** The cart is ready when it shows either its checkout control or the empty-cart message. */
+  async waitReady(): Promise<void> {
+    await expect(this.page).toHaveURL(/\/view_cart/);
+    await expect(this.proceedToCheckout.or(this.emptyMessage).first()).toBeVisible();
   }
 
   row(name: string): Locator {
@@ -53,6 +60,7 @@ export class CartPage {
   }
 
   async lines(): Promise<CartLine[]> {
+    await this.waitReady(); // never read rows before the cart page has rendered
     return readLines(this.rows);
   }
 
@@ -183,6 +191,6 @@ export class HomePage {
   }
 
   async open(): Promise<void> {
-    await this.page.goto('/');
+    await this.page.goto('/', { waitUntil: 'domcontentloaded' });
   }
 }

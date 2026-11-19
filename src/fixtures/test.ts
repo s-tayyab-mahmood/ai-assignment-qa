@@ -37,41 +37,93 @@ export const test = base.extend<Fixtures>({
     await use(context);
   },
 
-  // Deterministic diagnostics for RCA: console errors and failed requests are recorded for every
-  // UI test and attached when the test does not pass. Values are redacted by attachLog().
+  // Deterministic diagnostics for RCA, attached only when a test does not pass (redacted by attachLog):
+  //  - network-failures : FIRST-PARTY failed requests and 5xx responses (the evidence that matters)
+  //  - third-party-failures : other hosts (fonts, CDNs) – context only, never product evidence
+  //  - slow-or-pending-requests : first-party requests still open at the end, or slower than 5 s.
+  //    This separates "server answered slowly" from "element/locator missing".
+  //  - console-errors
+  // Entries are collected silently (not printed) to keep the console readable.
   page: async ({ page }, use, testInfo) => {
+    const now = () => new Date().toISOString();
+    const isFirstParty = (u: URL) => u.hostname.endsWith(new URL(env.baseUrl).hostname);
     const consoleErrors: LogEntry[] = [];
-    const requestFailures: LogEntry[] = [];
+    const firstParty: LogEntry[] = [];
+    const thirdParty: LogEntry[] = [];
+    const started = new Map<object, { url: string; method: string; type: string; t0: number }>();
+    const slow: LogEntry[] = [];
+
     page.on('console', (msg) => {
       if (msg.type() === 'error')
-        consoleErrors.push(log('warn', 'console.error', { text: msg.text().slice(0, 500) }));
+        consoleErrors.push({
+          ts: now(),
+          level: 'warn',
+          event: 'console.error',
+          data: { text: msg.text().slice(0, 300) },
+        });
     });
-    page.on('requestfailed', (req) => {
-      const url = new URL(req.url());
-      const blocked = req.failure()?.errorText.includes('BLOCKED_BY_CLIENT') ?? false;
-      if (blocked) return; // our own ad blocking – expected, not evidence
-      requestFailures.push(
-        log('warn', 'request.failed', {
+    page.on('request', (req) => {
+      const u = new URL(req.url());
+      if (isFirstParty(u))
+        started.set(req, {
+          url: `${u.origin}${u.pathname}`,
           method: req.method(),
-          // Path only: no query strings (may carry form values).
-          url: `${url.origin}${url.pathname}`,
+          type: req.resourceType(),
+          t0: Date.now(),
+        });
+    });
+    const finish = (req: object) => {
+      const r = started.get(req);
+      if (!r) return;
+      started.delete(req);
+      const ms = Date.now() - r.t0;
+      if (ms > 5000)
+        slow.push({ ts: now(), level: 'warn', event: 'request.slow', data: { ...r, t0: undefined, ms } });
+    };
+    page.on('requestfinished', finish);
+    page.on('requestfailed', (req) => {
+      finish(req);
+      const u = new URL(req.url());
+      const error = req.failure()?.errorText ?? 'unknown';
+      if (error.includes('BLOCKED_BY_CLIENT')) return; // our own ad blocking – expected, not evidence
+      const entry: LogEntry = {
+        ts: now(),
+        level: 'warn',
+        event: 'request.failed',
+        // Path only: no query strings (may carry form values).
+        data: {
+          method: req.method(),
+          url: `${u.origin}${u.pathname}`,
           resourceType: req.resourceType(),
-          error: req.failure()?.errorText ?? 'unknown',
-        }),
-      );
+          error,
+        },
+      };
+      (isFirstParty(u) ? firstParty : thirdParty).push(entry);
     });
     page.on('response', (res) => {
-      if (res.status() >= 500 && res.url().startsWith(env.baseUrl)) {
-        const url = new URL(res.url());
-        requestFailures.push(
-          log('warn', 'response.5xx', { url: `${url.origin}${url.pathname}`, status: res.status() }),
-        );
-      }
+      const u = new URL(res.url());
+      if (res.status() >= 500 && isFirstParty(u))
+        firstParty.push({
+          ts: now(),
+          level: 'warn',
+          event: 'response.5xx',
+          data: { url: `${u.origin}${u.pathname}`, status: res.status() },
+        });
     });
+
     await use(page);
+
     if (testInfo.status !== testInfo.expectedStatus) {
-      await attachLog(testInfo, 'console-errors', consoleErrors);
-      await attachLog(testInfo, 'network-failures', requestFailures);
+      const pending = [...started.values()].map((r) => ({
+        ts: now(),
+        level: 'warn' as const,
+        event: 'request.pending',
+        data: { url: r.url, method: r.method, type: r.type, openForMs: Date.now() - r.t0 },
+      }));
+      await attachLog(testInfo, 'network-failures', firstParty);
+      await attachLog(testInfo, 'third-party-failures', thirdParty.slice(0, 20));
+      await attachLog(testInfo, 'slow-or-pending-requests', [...pending, ...slow].slice(0, 20));
+      await attachLog(testInfo, 'console-errors', consoleErrors.slice(0, 20));
     }
   },
 

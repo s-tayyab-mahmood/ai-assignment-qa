@@ -32,7 +32,7 @@ export class ProductsPage {
   }
 
   async open(): Promise<void> {
-    await this.page.goto('/products');
+    await this.page.goto('/products', { waitUntil: 'domcontentloaded' });
     await expect(this.allProductsHeading).toBeVisible();
   }
 

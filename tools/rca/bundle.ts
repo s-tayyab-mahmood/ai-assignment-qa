@@ -124,6 +124,8 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
   }));
 
   const network = decodeJsonAttachment(find('network-failures'));
+  const slowOrPending = decodeJsonAttachment(find('slow-or-pending-requests'));
+  const thirdParty = decodeJsonAttachment(find('third-party-failures'));
   const consoleErrs = decodeJsonAttachment(find('console-errors'));
   const cleanup = decodeJsonAttachment(find('cleanup-log'));
   const artifacts = {
@@ -168,6 +170,19 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
           .slice(0, 600)}`
       : 'no failed first-party requests recorded (ad hosts blocked by design are excluded)',
   });
+  if (slowOrPending.length)
+    add({
+      type: 'network',
+      summary: `${slowOrPending.length} first-party request(s) slow (>5 s) or still pending at failure: ${slowOrPending
+        .map((n) => JSON.stringify((n as { data?: unknown }).data ?? n))
+        .join('; ')
+        .slice(0, 600)}`,
+    });
+  if (thirdParty.length)
+    add({
+      type: 'console',
+      summary: `context only (third-party hosts, not product evidence): ${thirdParty.length} failed request(s), e.g. ${JSON.stringify((thirdParty[0] as { data?: unknown }).data ?? {}).slice(0, 200)}`,
+    });
   add({
     type: 'console',
     summary: consoleErrs.length
@@ -197,6 +212,7 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
       : undefined,
     stackTop,
     networkFailures: network,
+    slowOrPending,
     consoleErrors: consoleErrs,
     cleanup,
     artifacts,

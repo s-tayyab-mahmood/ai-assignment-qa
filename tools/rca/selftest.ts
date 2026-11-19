@@ -27,6 +27,7 @@ function rec(p: Partial<FailureRecord> & { errorMessage: string }): FailureRecor
     ],
     stackTop: [],
     networkFailures: [],
+    slowOrPending: [],
     consoleErrors: [],
     cleanup: [],
     artifacts: { trace: 'trace.zip', screenshot: 'shot.png' },
@@ -39,6 +40,15 @@ function rec(p: Partial<FailureRecord> & { errorMessage: string }): FailureRecor
     { id: 'E2', type: 'retry-history', summary: base.attempts.map((a) => a.status).join(',') },
     { id: 'E3', type: 'trace', summary: 'trace', path: 'trace.zip' },
     { id: 'E4', type: 'network', summary: base.networkFailures.length ? 'failures' : 'none' },
+    ...(base.slowOrPending.length
+      ? [
+          {
+            id: 'E6',
+            type: 'network' as const,
+            summary: '1 first-party request(s) slow (>5 s) or still pending at failure',
+          },
+        ]
+      : []),
     ...(base.faultInjection ? [{ id: 'E5', type: 'annotation' as const, summary: base.faultInjection }] : []),
   ];
   return base;
@@ -92,6 +102,32 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
       errorMessage: 'TimeoutError: apiRequestContext.fetch: Timeout 15000ms exceeded.',
       attempts: [{ retry: 0, status: 'timedOut', durationMs: 15000 }],
       artifacts: { trace: 'trace.zip' },
+    }),
+  },
+  {
+    // Shape taken from the first live run (AE-12, 2026-11-19); the classifier wrongly said
+    // TEST_SCRIPT_DEFECT because an unrelated src/ file had changed and the code frame matched.
+    name: 'Live regression: goto timeout with unrelated src change',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: ['src/utils/redact.ts', 'tools/rca/classify.ts'],
+    f: rec({
+      errorMessage:
+        'TimeoutError: page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to "https://automationexercise.com/products", waiting until "load"\n\n   34 |   async open(): Promise<void> {\n > 35 |     await this.page.goto(\'/products\');\n   36 |     await expect(this.allProductsHeading).toBeVisible();',
+      file: 'tests/ui/cart.spec.ts',
+      errorLocation: 'src/pages/CatalogPages.ts:35:21',
+      attempts: [{ retry: 0, status: 'timedOut', durationMs: 30600 }],
+    }),
+  },
+  {
+    name: 'Element wait expired while a first-party XHR was still pending',
+    expect: 'TIMING_OR_FLAKINESS',
+    changed: [],
+    f: rec({
+      errorMessage:
+        "Error: expect(locator).toBeVisible() failed\nLocator: locator('#cartModal').getByRole('heading', { name: 'Added!' })\nTimeout: 10000ms\nError: element(s) not found",
+      slowOrPending: [
+        { data: { url: 'https://automationexercise.com/add_to_cart/1', method: 'GET', openForMs: 11000 } },
+      ],
     }),
   },
   {
