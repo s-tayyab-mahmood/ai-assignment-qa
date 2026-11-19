@@ -56,6 +56,7 @@ export function renderMarkdown(bundle: FailureBundle, records: RcaRecord[], mode
     if (r.fault_injection)
       lines.push(`\n> ⚠️ Fault injection: ${r.fault_injection}. Not evidence about the product.`);
     lines.push('');
+    if (r.cleanup_warning) lines.push(`\n> 🧹 ${r.cleanup_warning}`);
     lines.push(`- **Symptom:** ${r.symptom}`);
     lines.push(`- **First failure:** ${r.first_failure}`);
     lines.push(

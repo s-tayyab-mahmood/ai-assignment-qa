@@ -120,6 +120,7 @@ export const RcaRecordSchema = z.object({
   recommended_action: z.string(),
   owner: z.string(),
   fault_injection: z.string().optional(),
+  cleanup_warning: z.string().optional(),
   analysis_mode: z.enum(['deterministic', 'ai-assisted', 'ai-rejected-fallback']),
   ai: z
     .object({

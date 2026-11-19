@@ -82,6 +82,7 @@
     "recommended_action": { "type": "string" },
     "owner": { "type": "string" },
     "fault_injection": { "type": "string" },
+    "cleanup_warning": { "type": "string" },
     "analysis_mode": { "enum": ["deterministic", "ai-assisted", "ai-rejected-fallback"] },
     "ai": {
       "type": "object",

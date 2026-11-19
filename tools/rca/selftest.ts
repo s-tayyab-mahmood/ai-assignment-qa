@@ -148,6 +148,34 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    // Shape taken from the live run 2026-11-19 (AE-15 repeat 0): add_to_cart XHR open 25 s,
+    // cleanup timed out afterwards. Classifier said TIMING with TEST_DATA (cleanup) as runner-up.
+    name: 'Live regression: XHR unanswered longer than the wait, plus cleanup timeout',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: [],
+    f: rec({
+      errorMessage:
+        "Error: expect(locator).toBeVisible() failed\n\nLocator: locator('#cartModal').getByRole('heading', { name: 'Added!' })\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found",
+      attempts: [{ retry: 0, status: 'failed', durationMs: 44882 }],
+      slowOrPending: [
+        {
+          data: {
+            url: 'https://automationexercise.com/add_to_cart/1',
+            method: 'GET',
+            type: 'xhr',
+            openForMs: 25161,
+          },
+        },
+      ],
+      cleanup: [
+        {
+          event: 'account.cleanup.error',
+          data: { error: 'TimeoutError: apiRequestContext.fetch: Timeout 15000ms exceeded.' },
+        },
+      ],
+    }),
+  },
+  {
     name: 'Passed on retry',
     expect: 'TIMING_OR_FLAKINESS',
     changed: [],

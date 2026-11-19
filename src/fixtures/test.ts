@@ -86,6 +86,8 @@ export const test = base.extend<Fixtures>({
       const u = new URL(req.url());
       const error = req.failure()?.errorText ?? 'unknown';
       if (error.includes('BLOCKED_BY_CLIENT')) return; // our own ad blocking – expected, not evidence
+      // Images aborted when the page navigates away are browser housekeeping, not evidence.
+      if (error.includes('ERR_ABORTED') && req.resourceType() === 'image') return;
       const entry: LogEntry = {
         ts: now(),
         level: 'warn',
@@ -145,49 +147,71 @@ export const test = base.extend<Fixtures>({
     await use(new App(page));
   },
 
-  cleanup: async ({ api }, use, testInfo) => {
-    const tracked: UserAccount[] = [];
-    await use({ track: (u) => tracked.push(u) });
-    const entries: LogEntry[] = [];
-    for (const user of tracked) {
-      entries.push(await deleteIfExists(api, user));
-    }
-    if (entries.length) await attachLog(testInfo, 'cleanup-log', entries);
-  },
+  // Own timeout: cleanup retries must not be cut short by (or eat into) the test's timeout.
+  cleanup: [
+    async ({ api }, use, testInfo) => {
+      const tracked: UserAccount[] = [];
+      await use({ track: (u) => tracked.push(u) });
+      const entries: LogEntry[] = [];
+      for (const user of tracked) {
+        entries.push(await deleteIfExists(api, user));
+      }
+      if (entries.length) await attachLog(testInfo, 'cleanup-log', entries);
+    },
+    { timeout: 120_000 },
+  ],
 
-  account: async ({ api }, use, testInfo) => {
-    const user = buildUser();
-    const created = await api.createAccount(user);
-    expect(created.body, 'fixture: API account creation').toMatchObject({
-      responseCode: 201,
-      message: 'User created!',
-    });
-    const entries: LogEntry[] = [log('info', 'account.created', { scenarioUser: user.name })];
-    try {
-      await use(user);
-    } finally {
-      entries.push(await deleteIfExists(api, user));
-      await attachLog(testInfo, 'cleanup-log', entries);
-    }
-  },
+  account: [
+    async ({ api }, use, testInfo) => {
+      const user = buildUser();
+      const created = await api.createAccount(user);
+      expect(created.body, 'fixture: API account creation').toMatchObject({
+        responseCode: 201,
+        message: 'User created!',
+      });
+      const entries: LogEntry[] = [log('info', 'account.created', { scenarioUser: user.name })];
+      try {
+        await use(user);
+      } finally {
+        entries.push(await deleteIfExists(api, user));
+        await attachLog(testInfo, 'cleanup-log', entries);
+      }
+    },
+    { timeout: 120_000 },
+  ],
 });
 
+/**
+ * Cleanup with bounded retries. The public site is sometimes overloaded (timeouts, 503), and a
+ * single failed call would leave a disposable account behind. Up to 3 attempts with a short
+ * backoff; this runs in fixture teardown, never in a test body, so it is not a "sleep in a test".
+ * Never throws: a cleanup problem must not mask or replace the test's own result.
+ */
 async function deleteIfExists(api: ApiClient, user: UserAccount): Promise<LogEntry> {
-  try {
-    const exists = await api.verifyLogin(user.email, user.password);
-    if (exists.body.responseCode !== 200) {
-      return log('info', 'account.cleanup.already_deleted', { user: user.name });
+  const backoffMs = [0, 2000, 5000];
+  let lastError = '';
+  for (const [attempt, wait] of backoffMs.entries()) {
+    if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
+    try {
+      const exists = await api.verifyLogin(user.email, user.password);
+      if (exists.body.responseCode !== 200) {
+        return log('info', 'account.cleanup.already_deleted', { user: user.name, attempt: attempt + 1 });
+      }
+      const res = await api.deleteAccount(user.email, user.password);
+      if (res.body.responseCode === 200) {
+        return log('info', 'account.cleanup.deleted', { user: user.name, attempt: attempt + 1 });
+      }
+      lastError = `responseCode ${res.body.responseCode}`;
+    } catch (err) {
+      lastError = String(err).split('\n')[0] ?? String(err);
     }
-    const res = await api.deleteAccount(user.email, user.password);
-    const ok = res.body.responseCode === 200;
-    return log(ok ? 'info' : 'error', ok ? 'account.cleanup.deleted' : 'account.cleanup.failed', {
-      user: user.name,
-      responseCode: res.body.responseCode,
-    });
-  } catch (err) {
-    // Never throw from cleanup (it would mask the real test result); record it for RCA instead.
-    return log('error', 'account.cleanup.error', { user: user.name, error: String(err) });
   }
+  // Account may remain on the site. Logged as an error so RCA and reviewers see it.
+  return log('error', 'account.cleanup.failed_after_retries', {
+    user: user.name,
+    attempts: backoffMs.length,
+    error: lastError.slice(0, 200),
+  });
 }
 
 export { expect };

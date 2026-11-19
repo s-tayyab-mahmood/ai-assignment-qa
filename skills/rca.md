@@ -34,6 +34,11 @@
 | THIRD_PARTY_DEPENDENCY | Ad, vignette or consent iframes or hosts in the failing step | First-party failures |
 | UNKNOWN | Evidence insufficient or contradictory | — |
 
+**Site/server signals (learned from live runs, 2026-11-19):**
+- A page answered with HTTP 5xx (e.g. 503 "under heavy load") is ENVIRONMENT_OR_NETWORK, even if a changed file appears in the stack.
+- A first-party XHR or page request left unanswered for longer than the wait that failed is ENVIRONMENT_OR_NETWORK (the server was the bottleneck), not TIMING.
+- Cleanup errors happen *after* the failure. They are never a cause; report them as `cleanup_warning`.
+
 **Fault injection:** any failure annotated `fault-injection` is test-controlled. It is never `PRODUCT_DEFECT`. Classify the injected mechanism (network → ENVIRONMENT_OR_NETWORK, delay → TIMING_OR_FLAKINESS, script change → TEST_SCRIPT_DEFECT).
 
 ## Confidence rubric (calibrated judgement, not proof)

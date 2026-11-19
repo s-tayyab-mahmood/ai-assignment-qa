@@ -161,19 +161,39 @@ const rules: Rule[] = [
           'Navigation timed out before the page finished loading; the page was never ready for interaction, so neither locators nor product logic were reached.',
         )
       : null,
-  // A first-party request was slow or still open when an element wait timed out: the UI was waiting
-  // on the server, which points to slowness/synchronisation, not a missing element.
+  // A first-party request was slow or still open when a wait timed out. If the server held the
+  // request for at least as long as the whole wait, no reasonable wait would have succeeded: the
+  // server was the bottleneck (environment). If it was slower than usual but shorter than the wait,
+  // it points to synchronisation (timing).
   ({ f, ev, head }) => {
     if (!f.slowOrPending.length || !TIMEOUT_RE.test(head)) return null;
     const pendingEv = f.evidence
       .filter((e) => e.type === 'network' && /slow|pending/.test(e.summary))
       .map((e) => e.id);
+    const waitMs = Number(head.match(/Timeout:? (\d+)ms/i)?.[1] ?? 10000);
+    const longest = Math.max(
+      0,
+      ...f.slowOrPending.map((n) => {
+        const d = ((n as { data?: Record<string, unknown> }).data ?? n) as Record<string, unknown>;
+        const isPageWork = /xhr|fetch|document/.test(String(d.type ?? ''));
+        return isPageWork ? Number(d.openForMs ?? d.ms ?? 0) : 0;
+      }),
+    );
+    if (longest >= waitMs) {
+      return h(
+        'ENVIRONMENT_OR_NETWORK',
+        0.75,
+        [...ev('error'), ...pendingEv],
+        [],
+        `A first-party page/XHR request was unanswered for ${longest} ms, longer than the ${waitMs} ms wait: the server was the bottleneck, so no reasonable wait would have succeeded.`,
+      );
+    }
     return h(
       'TIMING_OR_FLAKINESS',
       0.65,
       [...ev('error'), ...pendingEv],
       [],
-      'A first-party request was still pending or took >5 s when the wait expired: the page was waiting on a slow server response.',
+      'A first-party request was slower than usual (>5 s) but shorter than the wait: likely a synchronisation gap.',
     );
   },
   ({ ev, head }) =>
@@ -206,14 +226,16 @@ const rules: Rule[] = [
           'API response violated its validated contract (schema mismatch). Could be a real API change; confirm against the live endpoint before raising a defect.',
         )
       : null,
-  ({ f, ev, head }) =>
-    DATA_RE.test(head) || f.cleanup.some((c) => /failed|error/.test(JSON.stringify(c)))
+  // Only a fixture/state error in the failure itself counts. Cleanup runs AFTER the failure, so a
+  // cleanup problem cannot have caused it; it is reported separately as cleanup_warning.
+  ({ ev, head }) =>
+    DATA_RE.test(head)
       ? h(
           'TEST_DATA_OR_STATE',
           0.6,
-          [...ev('error'), ...ev('cleanup')],
+          ev('error'),
           [],
-          'Account fixture/state problem (creation, duplicate, or cleanup).',
+          'Account fixture/state problem (creation or duplicate).',
         )
       : null,
   // Flakiness: passed on retry, or mixed results across attempts.
@@ -418,9 +440,17 @@ export function classifyFailure(f: FailureRecord, changed: string[]): RcaRecord 
     recommended_action: ACTION[classification],
     owner: OWNER[classification],
     ...(f.faultInjection ? { fault_injection: f.faultInjection } : {}),
+    ...(cleanupWarning(f) ? { cleanup_warning: cleanupWarning(f) } : {}),
     analysis_mode: 'deterministic',
     requires_human_approval: true,
   };
+}
+
+function cleanupWarning(f: FailureRecord): string | undefined {
+  const bad = f.cleanup.filter((c) => /failed|error/.test(JSON.stringify(c)));
+  return bad.length
+    ? `Cleanup reported ${bad.length} problem(s); a disposable test account may remain on the site. Not a cause of this failure (cleanup runs afterwards).`
+    : undefined;
 }
 
 /**
