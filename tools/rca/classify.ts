@@ -370,7 +370,9 @@ const rules: Rule[] = [
       touched || f.networkFailures.length ? 0.25 : 0.45,
       [...ev('error'), ...ev('screenshot')],
       touched ? ev('diff') : [],
-      'Deterministic value mismatch against a computed/API oracle with no test-code change. Must be reproduced manually before being reported as a product defect.',
+      touched
+        ? `Value mismatch against a computed/API oracle, but test code in the failure path changed (${relevantChanges.join(', ')}), which points away from the product. Kept as a low-scored alternative; reproduce manually before ever reporting a product defect.`
+        : 'Deterministic value mismatch against a computed/API oracle with no test-code change. Must be reproduced manually before being reported as a product defect.',
     );
   },
   ({ ev, head }) =>
