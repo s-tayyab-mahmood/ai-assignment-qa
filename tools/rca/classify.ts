@@ -153,7 +153,13 @@ const rules: Rule[] = [
     return h(
       isTiming ? 'TIMING_OR_FLAKINESS' : 'ENVIRONMENT_OR_NETWORK',
       0.75,
-      [...ev('annotation'), ...netEv, ...ev('retry-history')],
+      [
+        ...f.evidence
+          .filter((e) => e.type === 'annotation' && /fault-injection/.test(e.summary))
+          .map((e) => e.id),
+        ...netEv,
+        ...ev('retry-history'),
+      ],
       [],
       `Test carries a fault-injection annotation (${f.faultInjection}). The failure is test-controlled; it is not evidence about the product.`,
     );
@@ -353,15 +359,18 @@ const rules: Rule[] = [
     );
   },
   // Locator not found, no test-code change → UI change on the site.
-  ({ ev, head, relevantChanges }) => {
+  ({ f, ev, netEv, head, relevantChanges }) => {
     if (!LOCATOR_RE.test(head) || !TIMEOUT_RE.test(head)) return null;
     const touched = relevantChanges.length > 0;
+    const netFailed = meaningfulNetworkFailures(f).length > 0;
     return h(
       'LOCATOR_OR_UI_CHANGE',
-      touched ? 0.3 : 0.5,
+      touched || netFailed ? 0.3 : 0.5,
       [...ev('error'), ...ev('screenshot'), ...ev('trace')],
-      touched ? ev('diff') : [],
-      'Element could not be found/resolved in time with no first-party network errors; the page structure may have changed.',
+      [...(touched ? ev('diff') : []), ...(netFailed ? netEv : [])],
+      netFailed
+        ? 'Element did not appear in time, but first-party requests failed during the test, which explains a missing UI response better than a page-structure change.'
+        : 'Element could not be found/resolved in time with no first-party network errors; the page structure may have changed.',
     );
   },
   // Value mismatch with no code change and clean network → candidate product defect.
@@ -527,8 +536,10 @@ export function classifyFailure(f: FailureRecord, changed: string[]): RcaRecord 
     alternatives: hyps.filter((x) => x !== chosen).map((x) => `${x.category} (${x.score.toFixed(2)})`),
     validation: `Re-run isolated: npx playwright test ${f.file}:${f.line} --project=${f.project} --trace on; open trace; check: ${notes.join('; ') || 'n/a'}`,
     reproduction: `npx playwright test ${f.file}:${f.line} --project=${f.project}`,
-    recommended_action: ACTION[classification],
-    owner: OWNER[classification],
+    recommended_action: f.faultInjection
+      ? `Expected outcome of the controlled exercise (${f.faultInjection.split(':')[0]}). No product or infrastructure action. Verify the classification, record the review, and remove the injection to restore normal behaviour.`
+      : ACTION[classification],
+    owner: f.faultInjection ? 'QA automation (exercise owner)' : OWNER[classification],
     ...(f.faultInjection ? { fault_injection: f.faultInjection } : {}),
     ...(cleanupWarning(f) ? { cleanup_warning: cleanupWarning(f) } : {}),
     analysis_mode: 'deterministic',

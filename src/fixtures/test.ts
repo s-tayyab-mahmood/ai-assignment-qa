@@ -74,12 +74,14 @@ export const test = base.extend<Fixtures>({
           t0: Date.now(),
         });
     });
-    const finish = (req: object) => {
+    // completed=false for failed requests: they must not appear in the XHR log as "done"
+    // (FI-02 review, 2026-11-21: an aborted add_to_cart was listed as completed in 7 ms).
+    const finish = (req: object, completed: boolean) => {
       const r = started.get(req);
       if (!r) return;
       started.delete(req);
       const ms = Date.now() - r.t0;
-      if (/xhr|fetch/.test(r.type))
+      if (completed && /xhr|fetch/.test(r.type))
         xhrLog.push({
           ts: now(),
           level: 'info',
@@ -89,9 +91,9 @@ export const test = base.extend<Fixtures>({
       if (ms > 5000)
         slow.push({ ts: now(), level: 'warn', event: 'request.slow', data: { ...r, t0: undefined, ms } });
     };
-    page.on('requestfinished', finish);
+    page.on('requestfinished', (req) => finish(req, true));
     page.on('requestfailed', (req) => {
-      finish(req);
+      finish(req, false);
       const u = new URL(req.url());
       const error = req.failure()?.errorText ?? 'unknown';
       if (error.includes('BLOCKED_BY_CLIENT')) return; // our own ad blocking – expected, not evidence
