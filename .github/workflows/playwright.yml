@@ -31,11 +31,11 @@ jobs:
       WORKERS: '2'
       BLOCK_ADS: 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # commit diff is RCA evidence (changed files vs PR base)
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
@@ -47,7 +47,7 @@ jobs:
         run: npm run typecheck && npm run lint && npm run rca:selftest
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -90,7 +90,7 @@ jobs:
 
       - name: Upload reports and RCA artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: qa-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

@@ -99,5 +99,6 @@ The details are in `skills/rca.md`, `docs/architecture.md` and `docs/ai-policy.m
   - Most likely spots: the address block format (AE-15/16), the invoice text format (AE-17), the brand-sidebar count span (AE-10), and the recommended carousel (AE-21).
 - **Ads are blocked** by host pattern. If the site adds new ad hosts, extend `blockedThirdPartyHosts`.
 - **Public shared site:** availability and content can change. That is handled by RCA, not by weakening tests.
+- **Schedule timing is best-effort.** GitHub may start scheduled runs late under load. The first scheduled run (2026-11-20) was due at 05:00 PKT (00:00 UTC) and started at about 10:20 PKT (05:20 UTC). Use `workflow_dispatch` when a run is needed at a specific time.
 - **Chromium only;** no visual or accessibility audits. See docs/test-strategy.md §8.
 - **Evidence must be real.** The FI reports, scorecard, traceability status and approvals are deliberately left blank until they are filled from real runs.
