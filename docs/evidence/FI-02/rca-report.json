@@ -1,0 +1,154 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-20T20:30:12.179Z",
+    "reportFound": true,
+    "reportPath": "reports/results.json",
+    "commitSha": "04cc22aa54f26ac14798aeb0006883fbc6dea139",
+    "branch": "main",
+    "changedFiles": [
+      "README.md",
+      "tools/rca/classify.ts",
+      "tools/rca/selftest.ts"
+    ],
+    "stats": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "flaky": 0,
+      "skipped": 0,
+      "durationMs": 16656
+    },
+    "globalErrors": []
+  },
+  "mode": "deterministic (no AI_API_KEY – model-free fallback)",
+  "records": [
+    {
+      "scenario_id": "AE-11",
+      "test_id": "f06d974eb69201071cfd-81e222e8bf974025e48e",
+      "title": "FI-02 add-to-cart request blocked by test-controlled interception",
+      "classification": "ENVIRONMENT_OR_NETWORK",
+      "confidence": 0.75,
+      "status": "HYPOTHESIS_PENDING_REVIEW",
+      "business_severity": "NONE",
+      "symptom": "Error: expect(locator).toBeVisible() failed  Locator: locator('#cartModal').getByRole('heading', { name: 'Added!' })",
+      "first_failure": "First failing assertion/action at src\\pages\\CatalogPages.ts:138:30",
+      "evidence": [
+        {
+          "id": "E1",
+          "type": "error",
+          "summary": "Error: expect(locator).toBeVisible() failed\n\nLocator: locator('#cartModal').getByRole('heading', { name: 'Added!' })\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" locator('#cartModal').getByRole('heading', { name: 'Added!' }) with timeout 10000ms\n  - waiting for locator('#cartModal').getByRole('heading', { name: 'Added!' })\n\n\n   at ..\\src\\pages\\CatalogPages.ts:138\n\n  136 |\n  137 |   async continueShopping(): Promise<void> {\n> 138 |     await expect(this.title).toBeVisible();\n      |                              ^\n  139 |     await this.page.getByRole('button', { name: 'Continue Shopping' }).click();\n  140 |     await expect(this.title).toBeHidden();\n  141 |   }\n    at CartModal.continueShopping (D:\\ai-assignment-qa\\src\\pages\\CatalogPages\n…[truncated 182 chars]"
+        },
+        {
+          "id": "E2",
+          "type": "stack",
+          "summary": "failing line src\\pages\\CatalogPages.ts:138; "
+        },
+        {
+          "id": "E3",
+          "type": "retry-history",
+          "summary": "retry 0: failed (15370ms)"
+        },
+        {
+          "id": "E4",
+          "type": "trace",
+          "summary": "Playwright trace (open with npx playwright show-trace)",
+          "path": "test-results\\fi-02-network-FI-02-add-to-feaf7-est-controlled-interception-fault-injection\\trace.zip"
+        },
+        {
+          "id": "E5",
+          "type": "screenshot",
+          "summary": "screenshot at failure",
+          "path": "test-results\\fi-02-network-FI-02-add-to-feaf7-est-controlled-interception-fault-injection\\test-failed-1.png"
+        },
+        {
+          "id": "E6",
+          "type": "video",
+          "summary": "video of failing attempt",
+          "path": "test-results\\fi-02-network-FI-02-add-to-feaf7-est-controlled-interception-fault-injection\\video.webm"
+        },
+        {
+          "id": "E7",
+          "type": "network",
+          "summary": "1 failed/5xx request(s): {\"method\":\"GET\",\"url\":\"https://automationexercise.com/add_to_cart/1\",\"resourceType\":\"xhr\",\"error\":\"net::ERR_CONNECTION_FAILED\"}"
+        },
+        {
+          "id": "E8",
+          "type": "network",
+          "summary": "2 completed first-party XHR call(s), last: {\"url\":\"https://automationexercise.com/add_to_cart/1\",\"method\":\"GET\",\"ms\":7}; {\"url\":\"https://automationexercise.com/cdn-cgi/rum\",\"method\":\"POST\",\"ms\":167}"
+        },
+        {
+          "id": "E9",
+          "type": "console",
+          "summary": "context only (third-party hosts, not product evidence): 3 failed request(s), e.g. {\"method\":\"GET\",\"url\":\"http://fonts.googleapis.com/css\",\"resourceType\":\"stylesheet\",\"error\":\"mixed-content\"}"
+        },
+        {
+          "id": "E10",
+          "type": "console",
+          "summary": "5 console error(s): [{\"ts\":\"2026-11-20T20:29:27.567Z\",\"level\":\"warn\",\"event\":\"console.error\",\"data\":{\"text\":\"Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector\"}},{\"ts\":\"2026-11-20T20:29:27.722Z\",\"level\":\"warn\",\"event\":\"console.error\",\"data\":{\"text\":\"Mixed Content: The page at 'https://automationexercise.com/products' was loaded over HTTPS, but requested an insecure stylesheet 'http://fonts.googleapis.com/css?family=Roboto:400,300,400italic,500,700,100'. This request has been blocked; the content must be"
+        },
+        {
+          "id": "E11",
+          "type": "annotation",
+          "summary": "page URL at failure: https://automationexercise.com/products"
+        },
+        {
+          "id": "E12",
+          "type": "annotation",
+          "summary": "fault-injection annotation present: FI-02: route.abort(connectionfailed) on /add_to_cart/*"
+        },
+        {
+          "id": "E13",
+          "type": "diff",
+          "summary": "changed files: README.md, tools/rca/classify.ts, tools/rca/selftest.ts"
+        }
+      ],
+      "hypotheses": [
+        {
+          "category": "ENVIRONMENT_OR_NETWORK",
+          "score": 0.75,
+          "evidence_for": [
+            "E11",
+            "E12",
+            "E7",
+            "E8",
+            "E3"
+          ],
+          "evidence_against": [],
+          "rationale": "Test carries a fault-injection annotation (FI-02: route.abort(connectionfailed) on /add_to_cart/*). The failure is test-controlled; it is not evidence about the product."
+        },
+        {
+          "category": "LOCATOR_OR_UI_CHANGE",
+          "score": 0.5,
+          "evidence_for": [
+            "E1",
+            "E5",
+            "E4"
+          ],
+          "evidence_against": [],
+          "rationale": "Element could not be found/resolved in time with no first-party network errors; the page structure may have changed."
+        },
+        {
+          "category": "TIMING_OR_FLAKINESS",
+          "score": 0.3,
+          "evidence_for": [
+            "E1",
+            "E3"
+          ],
+          "evidence_against": [],
+          "rationale": "Generic timeout; slow site or synchronization gap."
+        }
+      ],
+      "alternatives": [
+        "LOCATOR_OR_UI_CHANGE (0.50)",
+        "TIMING_OR_FLAKINESS (0.30)"
+      ],
+      "validation": "Re-run isolated: npx playwright test tests\\fault-injection\\fi-02-network.spec.ts:12 --project=fault-injection --trace on; open trace; check: n/a",
+      "reproduction": "npx playwright test tests\\fault-injection\\fi-02-network.spec.ts:12 --project=fault-injection",
+      "recommended_action": "Check runner/network status and site availability; re-run once. No test change unless repeated and reproducible.",
+      "owner": "CI / infrastructure",
+      "fault_injection": "FI-02: route.abort(connectionfailed) on /add_to_cart/*",
+      "analysis_mode": "deterministic",
+      "requires_human_approval": true
+    }
+  ]
+}
