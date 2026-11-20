@@ -1,0 +1,51 @@
+{
+  "runs": 3,
+  "allGreen": true,
+  "results": [
+    {
+      "run": 1,
+      "startedAt": "2026-11-20T20:45:47.324Z",
+      "exitCode": 0,
+      "durationMs": 68154,
+      "stats": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "flaky": 0,
+        "skipped": 0,
+        "durationMs": 66590
+      },
+      "failures": []
+    },
+    {
+      "run": 2,
+      "startedAt": "2026-11-20T20:46:55.479Z",
+      "exitCode": 0,
+      "durationMs": 64587,
+      "stats": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "flaky": 0,
+        "skipped": 0,
+        "durationMs": 63052
+      },
+      "failures": []
+    },
+    {
+      "run": 3,
+      "startedAt": "2026-11-20T20:48:00.066Z",
+      "exitCode": 0,
+      "durationMs": 67467,
+      "stats": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "flaky": 0,
+        "skipped": 0,
+        "durationMs": 65927
+      },
+      "failures": []
+    }
+  ]
+}
