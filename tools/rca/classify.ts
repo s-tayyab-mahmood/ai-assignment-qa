@@ -254,6 +254,9 @@ const rules: Rule[] = [
   // page's scripts bound their handlers (test synchronisation), not slowness or a missing element.
   ({ f, ev, head }) => {
     if (!f.xhrLog || f.xhrLog.length > 0 || f.slowOrPending.length) return null;
+    // A failed XHR means the action DID reach the network (and failed there): not a no-effect click.
+    if (meaningfulNetworkFailures(f).some((n) => /"resourceType":"(xhr|fetch)"/.test(JSON.stringify(n))))
+      return null;
     if (!TIMEOUT_RE.test(head) || !LOCATOR_RE.test(head)) return null;
     const xhrEv = f.evidence
       .filter((e) => e.type === 'network' && /xhr-log/.test(e.summary))

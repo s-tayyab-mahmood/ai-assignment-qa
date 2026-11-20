@@ -8,6 +8,19 @@ A Playwright + TypeScript test automation solution for [automationexercise.com](
 
 > **Status:** framework complete; it type-checks, lints and lists 36 tests. The RCA classifier passes its self-test (9/9 synthetic cases). **The tests have not yet been run against the live site.** See "Limitations".
 
+## Author and AI assistance
+**Author / owner:** Tayyab Mahmood ([s-tayyab-mahmood](https://github.com/s-tayyab-mahmood)).
+
+AI assistance (Claude, Anthropic) was used to draft code, documentation and RCA rules. I ran every
+change against the live site and in CI, reviewed the results, and accepted, corrected or rejected
+each proposal; nothing was merged autonomously. My decisions and corrections are recorded in:
+- `docs/ai-evidence/approvals.md`: decision on every AI-proposed change and RCA classification
+- `docs/ai-evidence/prompt-log.md`: where I challenged or corrected the AI (Part B)
+- `docs/evidence/*/note.md` and `docs/fault-injection/FI-*.md`: my failure reviews and verdicts
+
+Commits drafted by the assistant are marked with a `Co-Authored-By: Claude` trailer (earlier ones
+carry Claude as author); evidence, reviews and fault-injection commits are my own.
+
 ## Quick start
 ```bash
 nvm use 22                 # Node.js LTS (22.x)

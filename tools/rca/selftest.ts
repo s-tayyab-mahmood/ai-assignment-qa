@@ -76,6 +76,30 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    // As FI-02 will look in a real run: XHR aborted by route.abort, XHR log empty, modal never shown.
+    // The no-effect-click rule must not fire (the request was sent and failed).
+    name: 'FI-02 real-run shape: aborted XHR + empty XHR log',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: [],
+    f: rec({
+      errorMessage:
+        "Error: expect(locator).toBeVisible() failed\n\nLocator: locator('#cartModal').getByRole('heading', { name: 'Added!' })\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found",
+      faultInjection: 'FI-02: route.abort(connectionfailed) on /add_to_cart/*',
+      networkFailures: [
+        {
+          data: {
+            method: 'GET',
+            url: 'https://automationexercise.com/add_to_cart/1',
+            resourceType: 'xhr',
+            error: 'net::ERR_CONNECTION_FAILED',
+          },
+        },
+      ],
+      xhrLog: [],
+      attempts: [{ retry: 0, status: 'failed', durationMs: 12000 }],
+    }),
+  },
+  {
     name: 'FI-03 pattern: pass/fail alternation with delay annotation',
     expect: 'TIMING_OR_FLAKINESS',
     changed: [],
