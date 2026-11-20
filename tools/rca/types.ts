@@ -50,6 +50,8 @@ export interface FailureRecord {
   faultInjection?: string;
   /** Set when the site served a 5xx error page for a whole page (document) during the test. */
   siteUnavailable?: string;
+  /** Page URL when the test failed (path only); 'about:blank' means no page was ever opened. */
+  finalUrl?: string;
   attempts: Attempt[];
   errorMessage: string;
   errorLocation?: string;

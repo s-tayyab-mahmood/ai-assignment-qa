@@ -136,6 +136,10 @@ export const test = base.extend<Fixtures>({
     await use(page);
 
     if (testInfo.status !== testInfo.expectedStatus) {
+      // Where the browser was when the test failed (path only, no query string).
+      const at = page.url();
+      const finalUrl = at.startsWith('http') ? `${new URL(at).origin}${new URL(at).pathname}` : at;
+      testInfo.annotations.push({ type: 'final-url', description: finalUrl });
       const pending = [...started.values()].map((r) => ({
         ts: now(),
         level: 'warn' as const,

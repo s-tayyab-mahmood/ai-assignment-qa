@@ -203,6 +203,8 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
       : 'no console errors recorded',
   });
   if (cleanup.length) add({ type: 'cleanup', summary: JSON.stringify(cleanup).slice(0, 400) });
+  const finalUrl = ann('final-url');
+  if (finalUrl) add({ type: 'annotation', summary: `page URL at failure: ${finalUrl}` });
   const unavailable = ann('site-unavailable');
   if (unavailable)
     add({
@@ -225,6 +227,7 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
     outcome: test.status === 'flaky' ? 'flaky' : 'unexpected',
     faultInjection: fi,
     siteUnavailable: unavailable,
+    finalUrl,
     attempts,
     errorMessage: clean(err?.message, 1200),
     errorLocation: err?.location

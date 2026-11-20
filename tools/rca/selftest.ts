@@ -210,6 +210,46 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    // AE-19, full run 2026-11-20: header link clicked on a blank page. RCA gave the right category
+    // for the wrong reason ("no XHR sent").
+    name: 'Live regression: test never opened a page (about:blank)',
+    expect: 'TEST_SCRIPT_DEFECT',
+    changed: [],
+    f: rec({
+      errorMessage:
+        "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('#header').getByRole('link', { name: 'Contact us' })",
+      finalUrl: 'about:blank',
+      xhrLog: [],
+    }),
+  },
+  {
+    // AE-15, full run 2026-11-20: 60 s test budget exhausted with /payment (document) still loading.
+    name: 'Live regression: test timeout with a page still loading',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: [],
+    f: rec({
+      errorMessage: 'Test timeout of 60000ms exceeded.',
+      attempts: [{ retry: 0, status: 'timedOut', durationMs: 68040 }],
+      slowOrPending: [
+        {
+          data: {
+            url: 'https://automationexercise.com/payment',
+            method: 'POST',
+            type: 'document',
+            openForMs: 9000,
+          },
+        },
+        {
+          data: {
+            url: 'https://automationexercise.com/static/js/jquery.prettyPhoto.js',
+            type: 'script',
+            openForMs: 8230,
+          },
+        },
+      ],
+    }),
+  },
+  {
     name: 'Passed on retry',
     expect: 'TIMING_OR_FLAKINESS',
     changed: [],

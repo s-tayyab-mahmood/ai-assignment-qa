@@ -17,6 +17,11 @@ test.describe('Checkout and orders', () => {
     'AE-15 flagship: new customer discovers products, checks out, pays and downloads a correct invoice',
     scenario('AE-15', 'P0', { smoke: true, layer: 'ui', ref: 'TC14-16' }),
     async ({ app, api, cleanup, page }, testInfo) => {
+      // Evidence-based budget (needs reviewer approval – docs/ai-evidence/approvals.md): this ~20-step
+      // journey took 34-52 s when passing on the live site (2026-11-19/20) and hit the 60 s test
+      // timeout on 2026-11-20 while /payment was still loading. test.slow() triples the budget for
+      // this one test only; step-level waits are unchanged.
+      test.slow();
       const tag = at('AE-15', 'P0');
       // 1. Unique identity – no reliance on any other test.
       const user = buildUser();

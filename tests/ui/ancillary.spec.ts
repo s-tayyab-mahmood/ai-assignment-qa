@@ -35,6 +35,9 @@ test.describe('Ancillary features', () => {
       const filePath = testInfo.outputPath('qa-upload.txt');
       await writeFile(filePath, 'Synthetic attachment for automated QA. Contains no personal data.\n');
 
+      // Start from the home page: the header only exists once a page is open (found on the first
+      // full run, 2026-11-20 – the test clicked a header link on a blank page).
+      await app.home.open();
       await app.header.goToContact();
       await expect(app.contact.heading, tag('contact form shown')).toBeVisible();
       await app.contact.submit({

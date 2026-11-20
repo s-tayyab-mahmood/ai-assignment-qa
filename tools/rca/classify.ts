@@ -96,7 +96,40 @@ function meaningfulNetworkFailures(f: FailureRecord): Array<Record<string, unkno
  */
 const EMPTY_RECEIVED_RE = /\+\s+"?\w*"?:?\s*(Array \[\]|\[\]|"")|Received:\s*(\[\]|"")/;
 
+const TEST_TIMEOUT_RE = /Test timeout of \d+ms exceeded/i;
+
 const rules: Rule[] = [
+  // The browser never left about:blank: the test acted before opening any page. Pure test defect.
+  ({ f, ev }) =>
+    f.finalUrl === 'about:blank'
+      ? h(
+          'TEST_SCRIPT_DEFECT',
+          0.85,
+          [
+            ...ev('error'),
+            ...f.evidence.filter((e) => /page URL at failure/.test(e.summary)).map((e) => e.id),
+          ],
+          [],
+          'The page was still about:blank when the test failed: the test interacted before navigating to any page.',
+        )
+      : null,
+  // Whole-test budget exhausted while several first-party requests were slow or a page was still
+  // loading: cumulative slowness of the site across many steps, not one missing element.
+  ({ f, ev, head }) => {
+    if (!TEST_TIMEOUT_RE.test(head)) return null;
+    const pendingPage = f.slowOrPending.some((n) => /"type":"document"/.test(JSON.stringify(n)));
+    if (!pendingPage && f.slowOrPending.length < 3) return null;
+    const pendingEv = f.evidence
+      .filter((e) => e.type === 'network' && /slow|pending/.test(e.summary))
+      .map((e) => e.id);
+    return h(
+      'ENVIRONMENT_OR_NETWORK',
+      0.65,
+      [...ev('error'), ...pendingEv],
+      [],
+      'The whole-test time budget ran out while first-party pages/resources were still slow or loading: cumulative site slowness. Review whether the budget fits this journey (evidence-based, reviewer-approved) rather than adding waits.',
+    );
+  },
   // The site answered a page request with a 5xx error page (e.g. 503 "under heavy load"). The page
   // under test was never shown, so no test or product logic was exercised: environment/availability.
   ({ f, ev }) => {
@@ -185,7 +218,12 @@ const rules: Rule[] = [
     const pendingEv = f.evidence
       .filter((e) => e.type === 'network' && /slow|pending/.test(e.summary))
       .map((e) => e.id);
-    const waitMs = Number(head.match(/Timeout:? (\d+)ms/i)?.[1] ?? 10000);
+    const waitMs = Number(
+      head
+        .match(/Timeout:? (\d+)ms|timeout of (\d+)ms/i)
+        ?.slice(1)
+        .find(Boolean) ?? 10000,
+    );
     const longest = Math.max(
       0,
       ...f.slowOrPending.map((n) => {

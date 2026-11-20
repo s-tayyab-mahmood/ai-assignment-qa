@@ -72,7 +72,10 @@ export class ProductsPage {
   }
 
   async openCategory(parent: string, child: string): Promise<void> {
-    await this.sidebar.getByRole('link', { name: parent, exact: false }).first().click();
+    // Whole-word match: a plain substring match for "Men" also matches "Women" (found on the first
+    // full run, 2026-11-20). The accessible name starts with an icon glyph, so allow leading
+    // non-word characters but nothing else before the category name.
+    await this.sidebar.getByRole('link', { name: new RegExp(`^\\W*${escapeRe(parent)}\\s*$`) }).click();
     await this.sidebar.locator(`#${parent}`).getByRole('link', { name: child }).click();
     await this.page.waitForURL(/\/category_products\//, { waitUntil: 'domcontentloaded' });
   }
