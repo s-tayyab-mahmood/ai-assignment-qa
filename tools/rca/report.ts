@@ -2,6 +2,23 @@ import type { FailureBundle, RcaRecord } from './types';
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
+/**
+ * Describe the AI step truthfully. A failed call (HTTP/network/timeout) is not a disagreement:
+ * on 2026-11-22 a no-credit HTTP 400 was reported as "AI differed from rule baseline".
+ */
+function aiNote(r: RcaRecord): string {
+  if (!r.ai) return '';
+  const reason = r.ai.rejection_reason;
+  if (
+    reason &&
+    /^(Error|TypeError|AbortError)|HTTP \d{3}|unsupported AI_PROVIDER|schema:|no JSON/i.test(reason)
+  ) {
+    return ` – AI call failed or returned unusable output; rule-based result used (${reason.slice(0, 200)})`;
+  }
+  if (reason) return ` – AI output rejected by guardrail: ${reason}; rule-based result used`;
+  return ` – AI ${r.ai.agreed_with_deterministic ? 'agreed with' : 'differed from'} the rule-based baseline`;
+}
+
 /** Human-readable Markdown summary (also written to the GitHub job summary). */
 export function renderMarkdown(bundle: FailureBundle, records: RcaRecord[], mode: string): string {
   const m = bundle.meta;
@@ -59,9 +76,7 @@ export function renderMarkdown(bundle: FailureBundle, records: RcaRecord[], mode
     if (r.cleanup_warning) lines.push(`\n> 🧹 ${r.cleanup_warning}`);
     lines.push(`- **Symptom:** ${r.symptom}`);
     lines.push(`- **First failure:** ${r.first_failure}`);
-    lines.push(
-      `- **Classification:** ${r.classification} (${pct(r.confidence)})${r.ai ? ` – AI ${r.ai.agreed_with_deterministic ? 'agreed with' : 'differed from'} rule baseline${r.ai.rejection_reason ? `; AI output rejected: ${r.ai.rejection_reason}` : ''}` : ''}`,
-    );
+    lines.push(`- **Classification:** ${r.classification} (${pct(r.confidence)})${aiNote(r)}`);
     lines.push(`- **Alternatives considered:** ${r.alternatives.join(', ') || 'none matched'}`);
     lines.push(`- **Validate:** ${r.validation}`);
     lines.push(`- **Reproduce:** \`${r.reproduction}\``);
