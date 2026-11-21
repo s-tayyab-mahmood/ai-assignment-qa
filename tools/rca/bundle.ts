@@ -90,11 +90,23 @@ function decodeJsonAttachment(a: PwAttachment | undefined): Array<Record<string,
   }
 }
 
+/**
+ * Files changed by this run's code relative to where it branched from the default branch.
+ * - pull_request: diff against the PR base (GITHUB_BASE_REF).
+ * - other branches (e.g. workflow_dispatch on a feature branch): diff against the merge-base with
+ *   the default branch, so merge commits do not hide the branch's own changes. On 2026-11-22 a
+ *   "HEAD~1" diff after `git merge main` missed the injected test change and the RCA wrongly
+ *   reported PRODUCT_DEFECT (CRITICAL).
+ * - the default branch itself: the last commit.
+ */
 function changedFiles(): string[] {
-  const base = process.env.GITHUB_BASE_REF;
-  if (base) {
-    sh(`git fetch --no-tags --depth=50 origin ${base}`);
-    const out = sh(`git diff --name-only origin/${base}...HEAD`);
+  const defaultBranch = process.env.RCA_DEFAULT_BRANCH || 'main';
+  const base = process.env.GITHUB_BASE_REF || defaultBranch;
+  sh(`git fetch --no-tags origin ${base}`);
+  const mergeBase = sh(`git merge-base HEAD origin/${base}`);
+  const head = sh('git rev-parse HEAD');
+  if (mergeBase && mergeBase !== head) {
+    const out = sh(`git diff --name-only ${mergeBase}..HEAD`);
     if (out) return out.split('\n');
   }
   const out = sh('git diff --name-only HEAD~1..HEAD');

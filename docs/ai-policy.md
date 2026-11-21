@@ -4,13 +4,14 @@
 | Use | Model / tool | Why |
 |---|---|---|
 | Design and authoring assistant (development time) | Claude (Anthropic), used interactively by the engineer | Strong at TypeScript and Playwright. Every suggestion goes through human review, type check, lint and tests. |
-| RCA agent (CI) – default | GitHub Models (`openai/gpt-4.1`), temperature 0, `max_tokens` 1500, authenticated with the run's short-lived `GITHUB_TOKEN` (`models: read`) | Free and rate-limited; no stored secret at all; JSON output that can be validated |
+| RCA agent (CI) – default | Google Gemini API, free tier (`gemini-3.8-flash`), temperature 0, max 1500 output tokens, JSON response mode; key from Google AI Studio stored only as the `AI_API_KEY` secret | Free (no card), rate-limited, enough for ≤5 calls per run. **Free-tier data may be used by Google for training** (outside EEA/CH/UK); acceptable here only because prompts contain redacted, synthetic test evidence (no personal data, secrets or page text) |
+| Tried and rejected | GitHub Models (2026-11-22, run 44941742953) | Service retired on 2026-07-30; endpoint answers HTTP 200 "OK". The guardrail rejected the non-JSON reply and the run fell back safely. Removed. |
 | RCA agent (CI) – alternative | Anthropic Messages API (`claude-sonnet-5-5`) when repo variable `AI_PROVIDER=anthropic` and secret `AI_API_KEY` are set | Paid; first attempt on 2026-11-22 failed with HTTP 400 (no credit) and fell back safely – see `docs/evidence/2026-11-22-ai-rca-fallback-no-credit/` |
 | Fallback | Rule-based classifier (`tools/rca/classify.ts`) | Works without a key or network. It is also the baseline that AI output is checked against. |
 
 Configuration:
-- Provider from repository variable `AI_PROVIDER` (default `github-models`), model from `AI_MODEL`.
-- Credential: the run's `GITHUB_TOKEN` (GitHub Models) or the `AI_API_KEY` secret (Anthropic) – never on pull_request runs.
+- Provider from repository variable `AI_PROVIDER` (default `gemini`), model from repository variable `AI_MODEL`.
+- Credential: the `AI_API_KEY` secret for the selected provider – never passed to pull_request runs.
 - No key is ever committed. `.env` is gitignored.
 
 ## Data sent to the model

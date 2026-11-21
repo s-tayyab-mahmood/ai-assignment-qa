@@ -21,7 +21,6 @@ concurrency:
 
 permissions:
   contents: read
-  models: read # GitHub Models inference for the AI RCA step (free; uses the run's GITHUB_TOKEN)
 
 jobs:
   qa:
@@ -81,12 +80,11 @@ jobs:
         timeout-minutes: 5
         env:
           # No credential at all on pull_request runs (PR code is untrusted): PRs get the
-          # model-free deterministic RCA. Scheduled/manual runs on trusted branches use:
-          #  - default provider 'github-models' with the run's short-lived GITHUB_TOKEN (no stored secret)
-          #  - or, if repo variable AI_PROVIDER=anthropic, the AI_API_KEY secret.
-          AI_PROVIDER: ${{ vars.AI_PROVIDER || 'github-models' }}
+          # model-free deterministic RCA. Scheduled/manual runs on trusted branches use the
+          # AI_API_KEY secret for the provider in repo variable AI_PROVIDER (default: gemini, free tier).
+          AI_PROVIDER: ${{ vars.AI_PROVIDER || 'gemini' }}
           AI_MODEL: ${{ vars.AI_MODEL || '' }}
-          AI_API_KEY: ${{ github.event_name != 'pull_request' && (vars.AI_PROVIDER == 'anthropic' && secrets.AI_API_KEY || github.token) || '' }}
+          AI_API_KEY: ${{ github.event_name != 'pull_request' && secrets.AI_API_KEY || '' }}
           AI_MAX_FAILURES: '5'
         run: npm run rca:analyze
 
