@@ -6,7 +6,7 @@
  * Synthetic cases are NOT evidence of real runs; real FI-01/FI-02 evidence comes from actual runs.
  */
 import assert from 'node:assert/strict';
-import { vetAiOutput } from './ai';
+import { mergeFirstFailure, vetAiOutput } from './ai';
 import { classifyFailure } from './classify';
 import type { Category, FailureRecord } from './types';
 
@@ -384,6 +384,18 @@ void import('./report').then(({ renderMarkdown }) => {
   assert.match(line(undefined, true), /AI agreed with/);
   console.log('PASS  report wording: timeout / call failure / guardrail rejection / agreement distinguished');
 });
+
+// First-failure merge keeps the precise rule-based location (run 44944370864).
+assert.match(
+  mergeFirstFailure('AE-12', 'First failing assertion/action at tests/ui/cart.spec.ts:41:79'),
+  /cart\.spec\.ts:41:79/,
+);
+assert.equal(
+  mergeFirstFailure('cart.spec.ts:41 – wrong multiplier', 'at tests/ui/cart.spec.ts:41:79'),
+  'cart.spec.ts:41 – wrong multiplier',
+);
+assert.equal(mergeFirstFailure('', 'baseline'), 'baseline');
+console.log('PASS  first-failure merge keeps file:line when the AI answer is less specific');
 
 // AI guardrails
 const fi = rec({ errorMessage: 'x', faultInjection: 'FI-02' });

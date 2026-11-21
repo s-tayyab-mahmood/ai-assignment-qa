@@ -176,6 +176,18 @@ export function vetAiOutput(out: AiOutput, f: FailureRecord): string | null {
   return null;
 }
 
+/**
+ * Keep the rule-based failure location (file:line from the stack) unless the AI's text is at least as
+ * specific. Run 44944370864 (2026-11-22): the AI replaced "tests/ui/cart.spec.ts:41:79" with "AE-12".
+ */
+export function mergeFirstFailure(aiText: string, baselineText: string): string {
+  const LOC = /[\w./\\-]+\.(ts|js):\d+/;
+  const ai = aiText.trim();
+  if (!ai) return baselineText;
+  if (LOC.test(ai) || !LOC.test(baselineText)) return ai;
+  return `${baselineText} (AI: ${ai.slice(0, 200)})`;
+}
+
 export async function analyzeWithAi(
   f: FailureRecord,
   baseline: RcaRecord,
@@ -240,7 +252,7 @@ export async function analyzeWithAi(
         alternatives: ai.hypotheses
           .filter((h) => h.category !== ai.classification)
           .map((h) => `${h.category} (${h.score.toFixed(2)})`),
-        first_failure: ai.first_failure || baseline.first_failure,
+        first_failure: mergeFirstFailure(ai.first_failure, baseline.first_failure),
         validation: ai.validation || baseline.validation,
         recommended_action: ai.recommended_action || baseline.recommended_action,
         analysis_mode: 'ai-assisted',
