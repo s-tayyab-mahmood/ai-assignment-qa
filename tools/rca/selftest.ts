@@ -345,6 +345,46 @@ for (const c of cases) {
   assert.equal(r.requires_human_approval, true);
 }
 
+// Report wording for AI-step outcomes (run 44942993219 attempt 3 printed a timeout as a guardrail rejection).
+void import('./report').then(({ renderMarkdown }) => {
+  const first = cases[0];
+  if (!first) throw new Error('no cases');
+  const rec0 = classifyFailure(structuredClone(first.f), first.changed);
+  const meta = {
+    reportFound: true,
+    reportPath: '',
+    commitSha: 'x',
+    branch: 'b',
+    generatedAt: 'g',
+    changedFiles: [],
+    stats: { total: 1, passed: 0, failed: 1, flaky: 0, skipped: 0, durationMs: 1 },
+    globalErrors: [],
+  };
+  const line = (reason?: string, agreed = false) =>
+    renderMarkdown(
+      { meta, failures: [] },
+      [
+        {
+          ...rec0,
+          ai: {
+            model: 'm',
+            agreed_with_deterministic: agreed,
+            ...(reason ? { rejection_reason: reason } : {}),
+          },
+        },
+      ],
+      'x',
+    )
+      .split('\n')
+      .find((l) => l.startsWith('- **Classification')) ?? '';
+  assert.match(line('call failed: AbortError: This operation was aborted'), /AI call timed out/);
+  assert.match(line('call failed: Error: HTTP 503: high demand'), /AI call failed/);
+  assert.match(line('call failed: Error: non-JSON response (HTTP 200, text/plain): OK'), /AI call failed/);
+  assert.match(line('cited non-existent evidence: E99'), /rejected by guardrail/);
+  assert.match(line(undefined, true), /AI agreed with/);
+  console.log('PASS  report wording: timeout / call failure / guardrail rejection / agreement distinguished');
+});
+
 // AI guardrails
 const fi = rec({ errorMessage: 'x', faultInjection: 'FI-02' });
 const base = { confidence: 0.9, first_failure: '', validation: '', recommended_action: '' };
