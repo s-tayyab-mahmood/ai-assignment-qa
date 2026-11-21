@@ -40,7 +40,9 @@ async function main(): Promise<void> {
       process.env.AI_MODEL ||
       (process.env.AI_PROVIDER === 'anthropic' ? 'claude-sonnet-5-5' : 'gemini-3.8-flash'),
     apiKey,
-    timeoutMs: 30_000,
+    // Default 30 s per call (orchestrator budget); configurable up to 60 s for a congested provider
+    // (run 44942993219 attempt 3 aborted at 30 s). The whole RCA step is capped at 5 min in CI.
+    timeoutMs: Math.min(Number(process.env.AI_TIMEOUT_MS) || 30_000, 60_000),
   };
 
   let mode = apiKey

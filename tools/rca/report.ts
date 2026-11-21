@@ -9,11 +9,12 @@ const pct = (n: number) => `${Math.round(n * 100)}%`;
 function aiNote(r: RcaRecord): string {
   if (!r.ai) return '';
   const reason = r.ai.rejection_reason;
-  if (
-    reason &&
-    /^(Error|TypeError|AbortError)|HTTP \d{3}|unsupported AI_PROVIDER|schema:|no JSON/i.test(reason)
-  ) {
-    return ` – AI call failed or returned unusable output; rule-based result used (${reason.slice(0, 200)})`;
+  // ai.ts prefixes every exception path with "call failed:" (HTTP errors, timeouts/aborts, non-JSON
+  // replies, schema errors). Guardrail rejections never carry that prefix.
+  if (reason && /^call failed:/i.test(reason)) {
+    const detail = reason.replace(/^call failed:\s*/i, '');
+    const kind = /AbortError|aborted/i.test(detail) ? 'timed out' : 'failed';
+    return ` – AI call ${kind}; rule-based result used (${detail.slice(0, 200)})`;
   }
   if (reason) return ` – AI output rejected by guardrail: ${reason}; rule-based result used`;
   return ` – AI ${r.ai.agreed_with_deterministic ? 'agreed with' : 'differed from'} the rule-based baseline`;
