@@ -1,7 +1,7 @@
 # Quality scorecard
 
 Every value comes from a linked artifact. "Not measured" means not measured – nothing is estimated.
-Drafted 2026-11-21 from the evidence in this repository; reviewed by: ✍️ Tayyab, ✍️ date.
+Drafted 2026-11-21 from the evidence in this repository; reviewed by: Tayyab, 2026-11-22.
 
 ## Execution and reliability
 | Metric | Value | Source |
@@ -58,18 +58,19 @@ finding of the RCA work: the deterministic baseline needs human review; it is no
 | Metric | Value | Source |
 |---|---|---|
 | Test-code defects found by live runs | 5 (AE-15 click-before-ready, AE-15 address read, AE-19 no navigation, AE-09 ambiguous locator, AE-15 budget) | evidence notes |
-| Maintenance effort | ✍️ hours spent on test fixes and triage (19–21 Nov) | engineer log |
+| Maintenance effort | 6 hours spent on test fixes and triage (19–22 Nov) | engineer log |
 | Time to triage | Not instrumented. Typical cycle in this session: run → RCA → evidence review → decision in ~5–15 min per failure | session evidence timestamps |
 | Cleanup success | All recorded cleanups `deleted` or `already_deleted` except one timeout on 19 Nov before fix4 (account `QA aelocal84f10c437e` may remain on the site); retries added in fix4 | `cleanup-log` attachments, `rca-summary` E11 (19 Nov) |
 
 ## Rubric self-assessment (fill before submission)
 | Dimension | Max | Self-score | Evidence link |
 |---|---|---|---|
-| Risk-based test design / traceability | 12 | ✍️ | `docs/test-strategy.md`, `docs/traceability.md` |
-| Playwright architecture / code quality | 15 | ✍️ | `src/`, `skills/playwright.md` |
-| UI & API coverage / data integrity | 14 | ✍️ | CI run 44794834130 |
-| AI task decomposition and agent design | 15 | ✍️ | `agents/orchestrator.md`, `skills/` |
-| AI RCA and failure classification | 18 | ✍️ | FI-01/FI-02 reports, table above |
-| CI/CD and report automation | 10 | ✍️ | runs 44680539790, 44794834130, 44804837080, 44805726674 |
-| Reliability, security and governance | 10 | ✍️ | stability evidence, `docs/ai-policy.md` |
-| Communication, metrics and live defense | 6 | ✍️ | – |
+| Risk-based test design / traceability | 12 | 11 | `docs/test-strategy.md`, `docs/traceability.md` |
+| Playwright architecture / code quality | 15 | 12 | `src/`, `skills/playwright.md` |
+| UI & API coverage / data integrity | 14 | 12 | CI run 44794834130 |
+| AI task decomposition and agent design | 15 | 12 | `agents/orchestrator.md`, `skills/`; RCA agent automated in CI, other agents run as documented human-in-the-loop processes |
+| AI RCA and failure classification | 18 | 14 | FI-01/FI-02 reports, `docs/ai-evidence/ai-rca-runs.md`, table above |
+| CI/CD and report automation | 10 | 9 | runs 44680539790, 44794834130, 44804837080, 44805726674, 44944370864 |
+| Reliability, security and governance | 10 | 9 | stability evidence, `docs/ai-policy.md` |
+| Communication, metrics and live defense | 6 | – (assessed at defense) | – |
+| **Total (excluding live defense)** | **94** | **79** | |
