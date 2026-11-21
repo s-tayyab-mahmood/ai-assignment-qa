@@ -1,0 +1,1 @@
+{"ts":"2026-11-21T20:05:47.945Z","test_id":"1981448f0b79506fb670-93940f3f2981d518aaab","scenario_id":"AE-12","provider":"gemini","model":"gemini-3.6-flash","prompt_sha256":"10adc6dd9eefadb5704f6d0b6a03b576de66e56a033aae8760346d11ce83617c","prompt_chars":9665,"response_chars":1001,"latency_ms":8581,"decision":"accepted","input_tokens":2769,"output_tokens":289}

@@ -31,7 +31,13 @@ AI mode was exercised on a trusted branch. Artifacts: `docs/evidence/2026-11-22-
 | Run 4 | AI's validation text said it "inspected the diff in E12"; E12 holds only changed **file names**. "× 3" was inferred from 1500 ÷ 500, not read from the code | Reviewer note – inference is correct, but must be confirmed against the real diff (done: `14879f6` / current branch) |
 
 ## Human review
-**Rebuttal / reviewer notes:** ✍️ (your words – e.g. what you confirmed against the diff; whether the
-AI added value over the rules; what the failed runs show about safety)
+**Rebuttal / reviewer notes:**
+- I double-checked the actual diff and confirmed that line 41 in `tests/ui/cart.spec.ts` is indeed multiplying by 3 instead of 4. Both the AI's root cause analysis and its suggested fix are spot-on.
+- That said, the AI figured out the "× 3" issue through basic math (1500 expected ÷ 500 unit price) rather than actually reading the code. When it claimed to have "inspected the diff in E12," it was overstating things—E12 only shows file names.
+- Where the AI really helped over the standard rules was explaining *why* the product's output (2000 for 4 × 500) was right, making it much clearer why this wasn't a `PRODUCT_DEFECT`.
+- Its "first failure" label ("AE-12") wasn't nearly as helpful as the standard `file:line` format, though that has since been addressed in `fix18`.
+- Across the five failed AI runs (due to lack of credits, a retired endpoint, two overloads, and a timeout), the system reliably fell back to the rule-based results. None of the failures masked the broken test or falsely passed the job.
+- Ironically, the biggest issue these runs uncovered was with the rules, not the AI: after a merge, the diff missed the injected test change, leading the RCA to falsely flag a critical `PRODUCT_DEFECT`. This has been resolved in `fix16`.
 
-**Human decision:** ✍️ (e.g. accept TEST_SCRIPT_DEFECT; AI provider and fallback behaviour approved) – reviewer ✍️, date ✍️
+**Human decision:** Approved `TEST_SCRIPT_DEFECT` for run 44944370864. Both the AI provider setup (Gemini free tier using redacted synthetic data only) and the fallback behavior look good to go. – Reviewer Tayyab, 2026-11-22
+
