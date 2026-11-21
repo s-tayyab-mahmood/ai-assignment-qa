@@ -75,6 +75,47 @@ export function buildPrompt(f: FailureRecord, baseline: RcaRecord): { system: st
   return { system: `${SYSTEM_PREAMBLE}\n\n--- RCA SKILL ---\n${skill()}`, user };
 }
 
+/**
+ * GitHub Models (free, rate-limited; OpenAI-compatible chat/completions). In Actions it is called
+ * with the run's short-lived GITHUB_TOKEN (workflow permission `models: read`) – no stored secret.
+ */
+async function callGithubModels(cfg: AiConfig, system: string, user: string) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs);
+  try {
+    const res = await fetch('https://models.github.ai/inference/chat/completions', {
+      method: 'POST',
+      signal: ctrl.signal,
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/vnd.github+json',
+        authorization: `Bearer ${cfg.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: cfg.model,
+        max_tokens: 1500,
+        temperature: 0,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+      }),
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${clip(redactText(text), 300)}`);
+    const json = JSON.parse(text) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
+    return {
+      text: json.choices?.[0]?.message?.content ?? '',
+      usage: { input_tokens: json.usage?.prompt_tokens, output_tokens: json.usage?.completion_tokens },
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callAnthropic(cfg: AiConfig, system: string, user: string) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs);
@@ -153,8 +194,14 @@ export async function analyzeWithAi(
   };
   const t0 = Date.now();
   try {
-    if (cfg.provider !== 'anthropic') throw new Error(`unsupported AI_PROVIDER "${cfg.provider}"`);
-    const { text, usage } = await callAnthropic(cfg, system, user);
+    const call =
+      cfg.provider === 'anthropic'
+        ? callAnthropic
+        : cfg.provider === 'github-models'
+          ? callGithubModels
+          : null;
+    if (!call) throw new Error(`unsupported AI_PROVIDER "${cfg.provider}"`);
+    const { text, usage } = await call(cfg, system, user);
     audit.latency_ms = Date.now() - t0;
     audit.response_chars = text.length;
     audit.input_tokens = usage?.input_tokens;
