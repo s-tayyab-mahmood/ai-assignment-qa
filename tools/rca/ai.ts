@@ -75,41 +75,47 @@ export function buildPrompt(f: FailureRecord, baseline: RcaRecord): { system: st
   return { system: `${SYSTEM_PREAMBLE}\n\n--- RCA SKILL ---\n${skill()}`, user };
 }
 
+/** Parse a provider response body; a non-JSON 2xx (e.g. a retired endpoint answering "OK") is a failure. */
+function parseJsonBody<T>(res: Response, text: string): T {
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${clip(redactText(text), 300)}`);
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      `non-JSON response (HTTP ${res.status}, ${res.headers.get('content-type') ?? 'no content-type'}): ${clip(redactText(text), 120)}`,
+    );
+  }
+}
+
 /**
- * GitHub Models (free, rate-limited; OpenAI-compatible chat/completions). In Actions it is called
- * with the run's short-lived GITHUB_TOKEN (workflow permission `models: read`) – no stored secret.
+ * Google Gemini API (free tier available via Google AI Studio, no card). Native generateContent
+ * endpoint; key sent in the x-goog-api-key header, never in the URL (keeps it out of logs).
  */
-async function callGithubModels(cfg: AiConfig, system: string, user: string) {
+async function callGemini(cfg: AiConfig, system: string, user: string) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs);
   try {
-    const res = await fetch('https://models.github.ai/inference/chat/completions', {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:generateContent`;
+    const res = await fetch(url, {
       method: 'POST',
       signal: ctrl.signal,
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/vnd.github+json',
-        authorization: `Bearer ${cfg.apiKey}`,
-      },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': cfg.apiKey },
       body: JSON.stringify({
-        model: cfg.model,
-        max_tokens: 1500,
-        temperature: 0,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts: [{ text: user }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 1500, responseMimeType: 'application/json' },
       }),
     });
-    const text = await res.text();
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${clip(redactText(text), 300)}`);
-    const json = JSON.parse(text) as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
-    };
+    const json = parseJsonBody<{
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+    }>(res, await res.text());
     return {
-      text: json.choices?.[0]?.message?.content ?? '',
-      usage: { input_tokens: json.usage?.prompt_tokens, output_tokens: json.usage?.completion_tokens },
+      text: (json.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join(''),
+      usage: {
+        input_tokens: json.usageMetadata?.promptTokenCount,
+        output_tokens: json.usageMetadata?.candidatesTokenCount,
+      },
     };
   } finally {
     clearTimeout(timer);
@@ -136,12 +142,10 @@ async function callAnthropic(cfg: AiConfig, system: string, user: string) {
         messages: [{ role: 'user', content: user }],
       }),
     });
-    const text = await res.text();
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${clip(redactText(text), 300)}`);
-    const json = JSON.parse(text) as {
+    const json = parseJsonBody<{
       content?: Array<{ type: string; text?: string }>;
       usage?: { input_tokens?: number; output_tokens?: number };
-    };
+    }>(res, await res.text());
     return { text: json.content?.find((c) => c.type === 'text')?.text ?? '', usage: json.usage };
   } finally {
     clearTimeout(timer);
@@ -194,12 +198,7 @@ export async function analyzeWithAi(
   };
   const t0 = Date.now();
   try {
-    const call =
-      cfg.provider === 'anthropic'
-        ? callAnthropic
-        : cfg.provider === 'github-models'
-          ? callGithubModels
-          : null;
+    const call = cfg.provider === 'gemini' ? callGemini : cfg.provider === 'anthropic' ? callAnthropic : null;
     if (!call) throw new Error(`unsupported AI_PROVIDER "${cfg.provider}"`);
     const { text, usage } = await call(cfg, system, user);
     audit.latency_ms = Date.now() - t0;
@@ -251,7 +250,8 @@ export async function analyzeWithAi(
     };
   } catch (e) {
     audit.latency_ms = Date.now() - t0;
-    audit.reason = clip(redactText(String(e)), 300);
+    // Prefix makes the report distinguish a failed call from a guardrail rejection.
+    audit.reason = `call failed: ${clip(redactText(String(e)), 300)}`;
     return {
       record: {
         ...baseline,

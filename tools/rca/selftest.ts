@@ -274,6 +274,18 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    // Run 44941742953 (2026-11-22): injected AE-12 fault on a branch, but the diff missed the test
+    // change (merge commit) and the rules said PRODUCT_DEFECT CRITICAL. With the correct diff the
+    // classification must be TEST_SCRIPT_DEFECT; without any diff it must not be CRITICAL-confident.
+    name: 'Live regression: FI-01 on a merged branch with the correct diff',
+    expect: 'TEST_SCRIPT_DEFECT',
+    changed: ['tests/ui/cart.spec.ts', 'tools/rca/ai.ts'],
+    f: rec({
+      errorMessage:
+        'Error: [AE-12|P0] line total for 4 units = 4 x unit price\n\nExpected: 1500\nReceived: 2000',
+    }),
+  },
+  {
     name: 'Passed on retry',
     expect: 'TIMING_OR_FLAKINESS',
     changed: [],

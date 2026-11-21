@@ -35,10 +35,10 @@ async function main(): Promise<void> {
   const apiKey = process.env.AI_API_KEY ?? '';
   const maxAi = Number(process.env.AI_MAX_FAILURES ?? 5);
   const cfg: AiConfig = {
-    provider: process.env.AI_PROVIDER || 'github-models',
+    provider: process.env.AI_PROVIDER || 'gemini',
     model:
       process.env.AI_MODEL ||
-      (process.env.AI_PROVIDER === 'anthropic' ? 'claude-sonnet-5-5' : 'openai/gpt-4.1'),
+      (process.env.AI_PROVIDER === 'anthropic' ? 'claude-sonnet-5-5' : 'gemini-3.8-flash'),
     apiKey,
     timeoutMs: 30_000,
   };
