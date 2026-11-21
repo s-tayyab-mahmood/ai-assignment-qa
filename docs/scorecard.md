@@ -46,11 +46,13 @@ finding of the RCA work: the deterministic baseline needs human review; it is no
 ## AI usage
 | Metric | Value | Source |
 |---|---|---|
-| AI model in the RCA pipeline | ✍️ Not yet exercised with a model: all recorded RCA runs used the deterministic fallback (no `AI_API_KEY`). | `rca-summary.md` "Analysis mode" |
-| AI agreement with baseline / rejections | Not measured (no AI-mode runs yet) | `reports/rca/audit-log.jsonl` |
-| AI cost / latency per failure | Not measured (no AI-mode runs yet) | `audit-log.jsonl` |
-| AI-assisted authoring | Claude (chat) drafted code/docs; 11 patches; every one reviewed, run and recorded | `docs/ai-evidence/approvals.md` |
-| Engineer corrections of AI output | 8 recorded (B1–B8) + FI-01/FI-02 report findings | `docs/ai-evidence/prompt-log.md` |
+| AI model in the RCA pipeline | Google Gemini free tier (`gemini-3.6-flash` via repo variable `AI_MODEL`); Anthropic optional. GitHub Models tried – service retired | `docs/ai-evidence/ai-rca-runs.md` |
+| AI-mode runs | 4 runs / 6 attempts: 1 accepted, 5 safe fallbacks (no credit, retired endpoint, 2× HTTP 503, 1× timeout) – none hid the test result | same |
+| AI agreement with baseline | 1/1 accepted analysis agreed (TEST_SCRIPT_DEFECT; confidence 0.75 → 0.85) | [run 44944370864](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/44944370864) |
+| AI rejections by guardrail | 0 – all non-accepted outcomes were call failures, not invalid answers | audit logs in `docs/evidence/2026-11-22-ai-rca-*` |
+| AI cost / latency per failure | $0 (free tier); 8.6 s; 2,769 input / 289 output tokens | `docs/evidence/2026-11-22-ai-rca-gemini-accepted/audit-log.jsonl` |
+| AI-assisted authoring | Claude (chat) drafted code/docs; 19 patches; every one reviewed, run and recorded | `docs/ai-evidence/approvals.md` |
+| Engineer corrections of AI output | 8 recorded (B1–B8) + FI-01/FI-02 report findings + AI-run findings (merge-diff false CRITICAL, outcome wording, vague location, overstated "inspected the diff") | `prompt-log.md`, `ai-rca-runs.md` |
 
 ## Maintenance and data hygiene
 | Metric | Value | Source |
