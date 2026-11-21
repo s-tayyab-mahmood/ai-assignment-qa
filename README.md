@@ -6,7 +6,7 @@ A Playwright + TypeScript test automation solution for [automationexercise.com](
 - GitHub Actions CI (daily at 05:00 PKT, on pull requests, and on demand)
 - a deterministic failure-diagnostics pipeline, with an optional, guarded AI root-cause-analysis step
 
-> **Status:** framework complete; it type-checks, lints and lists 36 tests. The RCA classifier passes its self-test (9/9 synthetic cases). **The tests have not yet been run against the live site.** See "Limitations".
+> **Status (2026-11-22):** all 36 tests pass against the live site in CI ([run 44794834130](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/44794834130)); daily scheduled runs green; smoke stability 3/3 (27/27). Fault injections FI-01 and FI-02 executed and reviewed; AI-assisted RCA exercised in CI (Gemini). Results and limits: `docs/scorecard.md`; evidence: `docs/evidence/`.
 
 ## Author and AI assistance
 **Author / owner:** Tayyab Mahmood ([s-tayyab-mahmood](https://github.com/s-tayyab-mahmood)).
@@ -113,9 +113,9 @@ The workflow is `.github/workflows/playwright.yml`.
 
   The RCA summary is also written to the job summary.
 - **Secrets:**
-  - `AI_API_KEY` is optional; add it under repo Settings → Secrets → Actions.
+  - `AI_API_KEY` (optional) – key for the AI provider; add it under repo Settings → Secrets → Actions. Default provider: Google Gemini free tier (key from Google AI Studio, no card).
   - It is **never passed to `pull_request` runs**. PR runs get the model-free RCA.
-  - The optional repository variable `AI_MODEL` overrides the model.
+  - Optional repository variables: `AI_PROVIDER` (`gemini` default, or `anthropic`), `AI_MODEL` (currently `gemini-3.6-flash`), `AI_TIMEOUT_MS` (default 30000, max 60000).
 - **Site safety:** 2 workers, 1 retry in CI, one run per ref at a time.
 
 ## AI-assisted RCA in short
@@ -129,12 +129,14 @@ The details are in `skills/rca.md`, `docs/architecture.md` and `docs/ai-policy.m
 ## Fault-injection exercises
 | ID | How | Expected classification | Doc |
 |---|---|---|---|
-| FI-01 | Branch `fi-01-script-fault`: wrong expected total in AE-12. Repair branch `repair/fi-01` | TEST_SCRIPT_DEFECT | docs/fault-injection/FI-01.md |
+| FI-01 | Branch `fi-01-script-fault` (PR, closed unmerged): wrong expected total in AE-12, then a 1-line repair on the same PR (red → green). Branch `fi-01-ai-rca` re-injects it for AI-mode RCA runs | TEST_SCRIPT_DEFECT | docs/fault-injection/FI-01.md, docs/ai-evidence/ai-rca-runs.md |
 | FI-02 | `route.abort` on add-to-cart, local context only | ENVIRONMENT_OR_NETWORK (test-controlled) | docs/fault-injection/FI-02.md |
 | FI-03 | Intermittent delay inside the route handler, `--repeat-each=6` | TIMING_OR_FLAKINESS | docs/fault-injection/FI-03.md |
 
 ## Limitations and known risks
-- **Not yet executed against the live site.** The sandbox where this was built had no access to automationexercise.com. The locators and expected texts are based on the site's known markup and published test cases. Expect a round of locator fixes on the first real run. Record each fix in `docs/ai-evidence/prompt-log.md` Part B.
+- **Live-site variability.** The public site is sometimes slow or overloaded (HTTP 503 "heavy load", requests held >25 s). Such failures are classified ENVIRONMENT_OR_NETWORK by RCA rather than "fixed" in tests; local runs use `WORKERS=1`. The first live runs also exposed five test-code defects, all fixed and documented (`docs/evidence/`, `docs/ai-evidence/prompt-log.md` Part B).
+- **RCA accuracy.** On real failures, the rule-based RCA's first verdict was right in 3 of 11 cases; every miss was caught in human review and turned into a rule plus a regression case (`docs/scorecard.md`). Classifications always require human approval.
+- **AI provider.** Default is the Google Gemini free tier (rate-limited; free-tier data may be used for training, so prompts carry only redacted synthetic evidence). Provider overloads and timeouts fall back to the rule-based result (`docs/ai-evidence/ai-rca-runs.md`).
   - Most likely spots: the address block format (AE-15/16), the invoice text format (AE-17), the brand-sidebar count span (AE-10), and the recommended carousel (AE-21).
 - **Ads are blocked** by host pattern. If the site adds new ad hosts, extend `blockedThirdPartyHosts`.
 - **Public shared site:** availability and content can change. That is handled by RCA, not by weakening tests.

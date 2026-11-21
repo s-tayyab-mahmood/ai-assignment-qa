@@ -33,7 +33,7 @@ schedule 00:00 UTC / PR / manual ─▶ [3 Execution] ─▶ [4 RCA] ─▶ [6 R
 | AI output fails validation | Deterministic record is used (`ai-rejected-fallback`) and logged. |
 
 ## Budgets and limits
-- **Time:** whole job ≤ 35 min; RCA step ≤ 5 min; each model call ≤ 30 s.
+- **Time:** whole job ≤ 35 min; RCA step ≤ 5 min; each model call ≤ 30 s by default (`AI_TIMEOUT_MS`, capped at 60 s).
 - **Tokens and cost:** at most 5 failures sent to the model per run (`AI_MAX_FAILURES`); each prompt ≤ ~12k characters (evidence clipped); `max_tokens` 1500; temperature 0.
 - **Retries:** Playwright retries 1 (CI only); model call 0 retries, falling back to deterministic; repair attempts ≤ 2 per RCA record before escalating to a human.
 - **Site load:** workers ≤ 3; one concurrent run per ref (`concurrency` in the workflow).

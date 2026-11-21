@@ -68,7 +68,7 @@ flowchart TB
 - Every diagnostics step uses `if: always()` and `continue-on-error: true`. The original test outcome is re-applied in the last step, so AI or reporting failures can never hide it, and they can never turn a red run green.
 - `rca:collect` and `rca:analyze` always exit 0. If there is no report, they write a "no report found" summary instead.
 - Pull-request runs never receive `AI_API_KEY`, because PR code is untrusted. They get the model-free RCA instead.
-- Model calls are bounded at 5 failures per run and 30 s per call. Each call has one attempt, then falls back to the deterministic result.
+- Model calls are bounded at 5 failures per run and 30 s per call by default (repo variable `AI_TIMEOUT_MS`, capped at 60 s). Each call has one attempt, then falls back to the deterministic result. Observed in CI: no credit, a retired endpoint, HTTP 503 overload and a timeout all fell back safely (`docs/ai-evidence/ai-rca-runs.md`).
 
 ## 3. Agents and skills
 See `agents/orchestrator.md` for the full contract. Each agent is paired with:
