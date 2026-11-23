@@ -103,13 +103,17 @@ async function callGemini(cfg: AiConfig, system: string, user: string) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: 'user', parts: [{ text: user }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 1500, responseMimeType: 'application/json' },
+        // Thinking models count reasoning tokens against maxOutputTokens; 1500 truncated 2 of 5 answers
+        // mid-JSON in run 45116848024. 8192 leaves room; the reply itself stays small.
+        generationConfig: { temperature: 0, maxOutputTokens: 8192, responseMimeType: 'application/json' },
       }),
     });
     const json = parseJsonBody<{
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>;
       usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
     }>(res, await res.text());
+    const finish = json.candidates?.[0]?.finishReason;
+    if (finish && finish !== 'STOP') throw new Error(`response not complete (finishReason ${finish})`);
     return {
       text: (json.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join(''),
       usage: {

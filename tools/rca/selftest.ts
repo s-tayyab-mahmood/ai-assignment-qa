@@ -274,6 +274,22 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    // Scheduled run 45116848024 (2026-11-23): products API answered with the 503 "heavy load" page.
+    // Rules said TIMING 0.60 with PRODUCT_DEFECT 0.55 (contract rule) as the runner-up.
+    name: 'Live regression: API answered 503 heavy-load page (flaky)',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: ['docs/scorecard.md'],
+    f: rec({
+      outcome: 'flaky',
+      errorMessage:
+        'Error: API https://automationexercise.com/api/productsList returned non-JSON (HTTP 503): \nThis website is under heavy load (queue full)',
+      attempts: [
+        { retry: 0, status: 'failed', durationMs: 3000 },
+        { retry: 1, status: 'passed', durationMs: 2000 },
+      ],
+    }),
+  },
+  {
     // Run 44941742953 (2026-11-22): injected AE-12 fault on a branch, but the diff missed the test
     // change (merge commit) and the rules said PRODUCT_DEFECT CRITICAL. With the correct diff the
     // classification must be TEST_SCRIPT_DEFECT; without any diff it must not be CRITICAL-confident.
@@ -340,6 +356,12 @@ for (const c of cases) {
   console.log(
     `${ok ? 'PASS' : 'FAIL'}  ${c.name}: expected ${c.expect}, got ${r.classification} (${r.confidence})`,
   );
+  if (c.name.startsWith('Live regression: API answered 503')) {
+    assert.ok(
+      !r.hypotheses.some((x) => x.category === 'PRODUCT_DEFECT'),
+      'a 5xx error page is not an API contract change',
+    );
+  }
   if (c.f.faultInjection)
     assert.notEqual(r.classification, 'PRODUCT_DEFECT', 'injected fault must never be a product defect');
   assert.equal(r.requires_human_approval, true);

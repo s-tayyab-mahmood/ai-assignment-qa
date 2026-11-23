@@ -17,6 +17,8 @@ const LOCATOR_RE =
 const VALUE_RE = /Expected:|Received:|toEqual|toBe\(|toHaveText|toContain/;
 const TIMEOUT_RE = /Timeout:? \d+ms( exceeded)?|Test timeout of \d+ms exceeded|Timed out \d+ms/i;
 const CONTRACT_RE = /contract violation|returned non-JSON/i;
+/** An API call answered by a 5xx error page (scheduled run 45116848024: 503 "heavy load (queue full)"). */
+const API_UNAVAILABLE_RE = /returned non-JSON \(HTTP 5\d\d\)|under heavy load|queue full/i;
 const DATA_RE =
   /fixture: API account creation|Email already exists|User not found|account\.cleanup\.(failed|error)/i;
 const THIRD_PARTY_RE =
@@ -305,8 +307,18 @@ const rules: Rule[] = [
           'Failure text references ad/vignette iframes from third-party ad hosts.',
         )
       : null,
+  ({ ev, head }) =>
+    API_UNAVAILABLE_RE.test(head)
+      ? h(
+          'ENVIRONMENT_OR_NETWORK',
+          0.85,
+          ev('error'),
+          [],
+          'The API answered with an HTTP 5xx error page (site overloaded or unavailable) instead of JSON. The contract was never exercised, so this is not evidence of an API change.',
+        )
+      : null,
   ({ ev, netEv, head }) =>
-    CONTRACT_RE.test(head)
+    CONTRACT_RE.test(head) && !API_UNAVAILABLE_RE.test(head)
       ? h(
           'PRODUCT_DEFECT',
           0.55,
