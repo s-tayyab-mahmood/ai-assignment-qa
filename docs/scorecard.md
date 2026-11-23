@@ -42,24 +42,27 @@ Drafted 2026-11-21 from the evidence in this repository; reviewed by: Tayyab, 20
 | AE-12b 503 on /products (23 Nov, scheduled) | ENVIRONMENT_OR_NETWORK 90% | ENVIRONMENT_OR_NETWORK | ✓ |
 | AE-17 503 on /payment (23 Nov, scheduled) | ENVIRONMENT_OR_NETWORK 85% | ENVIRONMENT_OR_NETWORK | ✓ |
 | AE-10 API answered 503 page (23 Nov, scheduled) | TIMING_OR_FLAKINESS 60% (PRODUCT_DEFECT 0.55 runner-up) | ENVIRONMENT_OR_NETWORK | ✗ |
+| 9 failures on 503 pages/API (23 Nov, manual run 45139042427: AE-22, AE-18, AE-21, AE-02, AE-03b, AE-12, AE-08, AE-15, AE-17) | ENVIRONMENT_OR_NETWORK 85–90% | ENVIRONMENT_OR_NETWORK | ✓ ×9 |
+| AE-10 API 503 before first navigation (23 Nov, manual) | TEST_SCRIPT_DEFECT 75% ("about:blank") | ENVIRONMENT_OR_NETWORK | ✗ |
+| AE-16 many first-party 503s (23 Nov, manual) | TIMING_OR_FLAKINESS 70% | ENVIRONMENT_OR_NETWORK | ✗ |
 
-**First-verdict accuracy on real failures: 7/16** (6 fully, 1 category only). The trend improved as
-corrections became rules: 3/11 in the first live runs (19–20 Nov) vs 4/5 on the overloaded-site
-scheduled run (23 Nov). Every misclassification was caught in human review, corrected with evidence,
-turned into a rule plus a regression case, and – where the results were still available – re-analysed
-correctly (`rca-after-fix.md` files). The rule-based baseline still needs human review; it is not
+**First-verdict accuracy on real failures: 16/27** (15 fully, 1 category only). The trend improved as
+corrections became rules: 3/11 in the first live runs (19–20 Nov) vs 4/5 and 9/11 on the two
+overloaded-site runs (23 Nov). Every misclassification was caught in human review, corrected with
+evidence, turned into a rule plus a regression case (self-test 23/23), and – where the results were
+still available – re-analysed correctly. The rule-based baseline still needs human review; it is not
 trusted on its own.
 
 ## AI usage
 | Metric | Value | Source |
 |---|---|---|
 | AI model in the RCA pipeline | Google Gemini free tier (`gemini-3.6-flash` via repo variable `AI_MODEL`); Anthropic optional. GitHub Models tried – service retired | `docs/ai-evidence/ai-rca-runs.md` |
-| AI-mode runs | 5 runs / 11 analyses: 4 accepted, 7 safe fallbacks (no credit, retired endpoint, 2× HTTP 503, 1× timeout, 2× truncated reply) – none hid the test result | `ai-rca-runs.md`, `docs/evidence/2026-11-23-scheduled-site-overload/` |
-| AI agreement with baseline | 4/4 accepted analyses agreed (FI-01 TEST_SCRIPT_DEFECT 0.75 → 0.85; scheduled run: AE-02, AE-12b, AE-17 ENVIRONMENT_OR_NETWORK) | runs 44944370864, 45116848024 |
-| AI suggestions rejected by reviewer | 1 – "add retry mechanisms" (AE-12b, 23 Nov): CI already retries once; more retries would hide flakiness and load the shared site | `approvals.md` |
+| AI-mode runs | 6 runs / 16 analyses: 9 accepted, 7 safe fallbacks (no credit, retired endpoint, 2× HTTP 503, 1× timeout, 2× truncated reply) – none hid the test result | `ai-rca-runs.md`, `docs/evidence/2026-11-23-*` |
+| AI agreement with baseline | 9/9 accepted analyses agreed (FI-01 TEST_SCRIPT_DEFECT 0.75 → 0.85; 8 ENVIRONMENT_OR_NETWORK on the two overload runs) | runs 44944370864, 45116848024, 45139042427 |
+| AI suggestions rejected by reviewer | 3 – "add retry mechanisms / backoff" (AE-12b, AE-21, AE-22, 23 Nov): CI already retries once; more retries would hide flakiness and load the shared site | `approvals.md` |
 | AI rejections by guardrail | 0 – all non-accepted outcomes were call failures (2 truncated replies fixed in fix21), not invalid answers | audit logs in `docs/evidence/2026-11-2*-*` |
 | AI cost / latency per failure | $0 (free tier); 8.6 s; 2,769 input / 289 output tokens | `docs/evidence/2026-11-22-ai-rca-gemini-accepted/audit-log.jsonl` |
-| AI-assisted authoring | Claude (chat) drafted code/docs; 21 patches; every one reviewed, run and recorded | `docs/ai-evidence/approvals.md` |
+| AI-assisted authoring | Claude (chat) drafted code/docs; 23 patches; every one reviewed, run and recorded | `docs/ai-evidence/approvals.md` |
 | Engineer corrections of AI output | 8 recorded (B1–B8) + FI-01/FI-02 report findings + AI-run findings (merge-diff false CRITICAL, outcome wording, vague location, overstated "inspected the diff") | `prompt-log.md`, `ai-rca-runs.md` |
 
 ## Maintenance and data hygiene
