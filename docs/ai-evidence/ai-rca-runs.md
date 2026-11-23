@@ -1,4 +1,4 @@
-# AI-assisted RCA in CI – run log (2026-11-22)
+# AI-assisted RCA in CI – run log (2026-11-22 to 2026-11-23)
 
 All runs: `workflow_dispatch` on branch `fi-01-ai-rca` (the FI-01 fault re-injected: AE-12 expects
 3 × unit price instead of 4 ×), grep `@AE-12`. Pull-request runs never receive an AI credential, so
@@ -11,6 +11,8 @@ AI mode was exercised on a trusted branch. Artifacts: `docs/evidence/2026-11-22-
 | 3 | [44942993219](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/44942993219) attempts 1–2 | gemini / gemini-3.8-flash | HTTP 503 – model under high demand | Fallback to rules | TEST_SCRIPT_DEFECT 75% (rules) |
 | 3 | 44942993219 attempt 3 | gemini (model variable changed) | 30 s timeout (AbortError) | Fallback; report wrongly said "rejected by guardrail" (fixed in fix17) | TEST_SCRIPT_DEFECT 75% (rules) |
 | 4 | [44944370864](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/44944370864) | gemini / **gemini-3.6-flash** (repo variable `AI_MODEL`), timeout 60 s (`AI_TIMEOUT_MS`) | **Answered; passed schema and evidence-ID checks** | `decision: accepted`; AI agreed with rules | **TEST_SCRIPT_DEFECT 85% – ai-assisted** |
+| 5 | [45116848024](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45116848024) (scheduled, 23 Nov) | gemini / gemini-3.6-flash | Site overloaded (503); 5 failures analysed | 3 accepted (all agreed: ENVIRONMENT_OR_NETWORK), 2 replies truncated mid-JSON → fallback (fixed in fix21) | Reviewer rejected AI suggestion "add retry mechanisms"; AE-10 rules verdict corrected (fix21) |
+| 6 | [45139042427](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45139042427) (manual, 23 Nov) | gemini / gemini-3.6-flash | Site overloaded (503); 11 failures, AI limited to first 5 | 5 accepted (all agreed: ENVIRONMENT_OR_NETWORK); 6 analysed by rules only | Reviewer rejected "retry logic / backoff" suggestions; AE-10 and AE-16 rules verdicts corrected (fix23) |
 
 ## Run 4 – the accepted AI analysis
 | Item | Value |

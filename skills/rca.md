@@ -38,6 +38,10 @@
 - A page answered with HTTP 5xx (e.g. 503 "under heavy load") is ENVIRONMENT_OR_NETWORK, even if a changed file appears in the stack.
 - A first-party XHR or page request left unanswered for longer than the wait that failed is ENVIRONMENT_OR_NETWORK (the server was the bottleneck), not TIMING.
 - Cleanup errors happen *after* the failure. They are never a cause; report them as `cleanup_warning`.
+- An API call answered by a 5xx / "heavy load" HTML page is ENVIRONMENT_OR_NETWORK, not a contract change (2026-11-23).
+- Three or more first-party 5xx responses during one test mean the site was overloaded, even if the page itself loaded (2026-11-23).
+- `about:blank` at failure means "the test never navigated" only for a page interaction; an API call that fails before the first navigation also leaves the page blank (2026-11-23).
+- Suggesting more retries for an overloaded site is out of policy: CI retries once; more retries hide flakiness and add load.
 
 **Fault injection:** any failure annotated `fault-injection` is test-controlled. It is never `PRODUCT_DEFECT`. Classify the injected mechanism (network → ENVIRONMENT_OR_NETWORK, delay → TIMING_OR_FLAKINESS, script change → TEST_SCRIPT_DEFECT).
 
