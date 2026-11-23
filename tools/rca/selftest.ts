@@ -274,6 +274,41 @@ const cases: Array<{ name: string; expect: Category; f: FailureRecord; changed: 
     }),
   },
   {
+    // Manual run 45139042427 (2026-11-23): AE-10 failed in an API call made before any page was
+    // opened; the about:blank rule wrongly said TEST_SCRIPT_DEFECT 0.85.
+    name: 'Live regression: API 503 before first navigation (about:blank is not a test defect)',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: ['docs/scorecard.md'],
+    f: rec({
+      errorMessage:
+        'Error: API https://automationexercise.com/api/brandsList returned non-JSON (HTTP 503): \nThis website is under heavy load (queue full)',
+      finalUrl: 'about:blank',
+    }),
+  },
+  {
+    // Same run: AE-16 "All Products" heading not found; many first-party 503s (images etc.) but the
+    // page document itself not recorded as 5xx. Rules said TIMING 0.70.
+    name: 'Live regression: many first-party 503s during a flaky UI test',
+    expect: 'ENVIRONMENT_OR_NETWORK',
+    changed: [],
+    f: rec({
+      outcome: 'flaky',
+      errorMessage:
+        "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('heading', { name: 'All Products' })\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found",
+      attempts: [
+        { retry: 0, status: 'failed', durationMs: 15000 },
+        { retry: 1, status: 'passed', durationMs: 9000 },
+      ],
+      networkFailures: [23, 43, 30, 38].map((id) => ({
+        data: {
+          url: `https://automationexercise.com/get_product_picture/${id}`,
+          status: 503,
+          resourceType: 'image',
+        },
+      })),
+    }),
+  },
+  {
     // Scheduled run 45116848024 (2026-11-23): products API answered with the 503 "heavy load" page.
     // Rules said TIMING 0.60 with PRODUCT_DEFECT 0.55 (contract rule) as the runner-up.
     name: 'Live regression: API answered 503 heavy-load page (flaky)',

@@ -100,10 +100,29 @@ const EMPTY_RECEIVED_RE = /\+\s+"?\w*"?:?\s*(Array \[\]|\[\]|"")|Received:\s*(\[
 
 const TEST_TIMEOUT_RE = /Test timeout of \d+ms exceeded/i;
 
+/** First-party 5xx responses of any kind recorded during the test. */
+function fiveXxCount(f: FailureRecord): number {
+  return f.networkFailures.filter((n) => /"status":5\d\d/.test(JSON.stringify(n))).length;
+}
+
 const rules: Rule[] = [
-  // The browser never left about:blank: the test acted before opening any page. Pure test defect.
-  ({ f, ev }) =>
-    f.finalUrl === 'about:blank'
+  // Several first-party 5xx responses (pages, images, API) during one test: the site was overloaded,
+  // even if the page document itself loaded (AE-16, run 45139042427: rules said TIMING 0.70).
+  ({ f, ev, netEv }) =>
+    fiveXxCount(f) >= 3
+      ? h(
+          'ENVIRONMENT_OR_NETWORK',
+          0.8,
+          [...ev('error'), ...netEv],
+          [],
+          `${fiveXxCount(f)} first-party HTTP 5xx responses were recorded during the test: the shared site was overloaded, which explains elements or responses not arriving in time.`,
+        )
+      : null,
+  // The browser never left about:blank AND the failure is a page interaction: the test acted
+  // before opening any page. An API call failing before the first navigation also leaves the
+  // page blank (AE-10, run 45139042427) - that is not this rule's case.
+  ({ f, ev, head }) =>
+    f.finalUrl === 'about:blank' && LOCATOR_RE.test(head) && !/apiRequestContext|API https?:\/\//.test(head)
       ? h(
           'TEST_SCRIPT_DEFECT',
           0.85,
