@@ -45,4 +45,6 @@ Every AI-proposed change and every RCA classification used as evidence gets one 
 | 2026-11-22 | fix20 `9449171` | Scorecard AI-usage table from the AI-assisted RCA runs | Accept | Real figures from the audit logs (8.6 s, 2,769/289 tokens, $0) | Tayyab |
 | 2026-11-23 | fix22 `f1d582b` | Scorecard: scheduled overload run added to RCA and AI metrics | Accept | Keeps scorecard, deck and evidence consistent (7/16 at that point) | Tayyab |
 | 2026-11-23 | fix24 `b7f6682` | Scorecard: manual overload run added to RCA and AI metrics | Accept | Final figures 16/27 first-verdict accuracy; 9/9 AI agreement | Tayyab |
-| 2026-11-23 | fix25 (this commit) | Final consistency review: approvals completed for every patch, fix13 ID corrected (pre-rebase ID 8edaf00 → d44c51b), AI run log and RCA skill updated | Accept | Every fix number now maps to an existing commit | Tayyab |
+| 2026-11-23 | fix25 `3d160bc` | Final consistency review: approvals completed for every patch, fix13 ID corrected (pre-rebase ID 8edaf00 → d44c51b), AI run log and RCA skill updated | Accept | Every fix number now maps to an existing commit | Tayyab |
+| 2026-11-23 | fix26 `e35353c` | UI test count corrected from 24 to 23 in traceability and test strategy (24 is the scenario count) | Accept | I caught the mismatch myself: 23 + 11 + 2 = 36, matching `--list` | Tayyab |
+| 2026-11-24 | fix27 (this commit) | Approvals: fix25 ID filled in, fix26 row added | Accept | Every patch now has an approval row with a real commit ID | Tayyab |
