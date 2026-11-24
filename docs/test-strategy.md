@@ -55,7 +55,7 @@ The brief fixed the priorities. The scores above justify them, and differences a
 ## 4. Approach by layer
 | Layer | What it proves | Count |
 |---|---|---|
-| UI (`tests/ui`) | User-visible journeys and calculations | 24 tests covering 20 scenario IDs (AE-01–04, 06–21) |
+| UI (`tests/ui`) | User-visible journeys and calculations | 23 tests covering 20 scenario IDs (AE-01–04, 06–21) |
 | API (`tests/api`) | Contracts, negative handling, data lifecycle | 11 tests covering all 14 reference API cases (API11–14 run as verified steps inside one CRUD flow), plus a duplicate-create negative case |
 | Integration (`tests/integration`) | UI and API agree on catalogue and brands | 2 tests (AE-24) |
 | Fault injection (`tests/fault-injection`) | The RCA pipeline is correct on known faults | FI-02, FI-03 (opt-in) + FI-01 on a branch |

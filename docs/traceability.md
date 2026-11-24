@@ -36,6 +36,6 @@ Evidence for every row: the Playwright HTML report, trace on failure, and `repor
 | AE-24 | P1 | UI/API consistency | `integration/consistency.spec.ts` | Listing vs API; brand sidebar vs API | — | name+price multiset equal; brand sets equal | Integration | API1, 3 | trace | Passing (CI 44794834130) |
 
 ## Totals
-- **UI:** 20 scenario IDs, 24 tests. The brief requires ≥ 18.
+- **UI:** 20 scenario IDs, 23 tests (`npx playwright test --list --project=ui`). The brief requires ≥ 18.
 - **Negative and edge UI tests:** AE-03a, AE-03b, AE-04, AE-08, AE-08b, AE-12b (6). The brief requires ≥ 6. API negatives are in addition: API-06, 08, 10, the duplicate create, and AE-23 ×3.
 - **API:** 11 tests, 14 reference endpoints and methods, more than 25 distinct assertions. The brief requires ≥ 8.
