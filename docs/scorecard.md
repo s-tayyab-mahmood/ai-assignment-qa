@@ -1,7 +1,7 @@
 # Quality scorecard
 
 Every value comes from a linked artifact. "Not measured" means not measured – nothing is estimated.
-Drafted 2026-11-21 from the evidence in this repository; reviewed by: Tayyab, 2026-11-22.
+Drafted 2026-11-21 from the evidence in this repository; reviewed by: Tayyab, 2026-11-22; updated 2026-11-25 (health-check run 45603876542).
 
 ## Execution and reliability
 | Metric | Value | Source |
@@ -10,9 +10,10 @@ Drafted 2026-11-21 from the evidence in this repository; reviewed by: Tayyab, 20
 | Pass rate – first scheduled CI run (before fix7) | 94% (34/36); both failures were test defects later fixed in fix7 | [run 44680539790](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/44680539790) |
 | Pass rate – first full local run (before fix7) | 92% (33/36) | `docs/evidence/2026-11-20-full-run/` |
 | Smoke stability | **3/3 consecutive runs green, 27/27 tests, 0 flaky** (65–68 s per run, no retries) | `docs/evidence/stability-3-runs/` |
-| Flaky rate (passed only on retry) | 0 in all recorded CI runs | CI runs above (flaky = 0) |
-| Suite duration – CI (2 workers) | 54–74 s for 36 tests | runs 44805726674 (54 s), 44804837080 (61 s), 44680539790 (74 s) |
+| Flaky rate (passed only on retry) | 1 in all recorded CI runs: AE-02 in run 45603876542 (HTTP 503 on `/logout` mid-run, passed on retry in 3.8 s; classified environment) | [run 45603876542](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45603876542), `docs/evidence/2026-11-25-health-check-first-run/` |
+| Suite duration – CI (2 workers) | 54–74 s for 36 tests | runs 44805726674 (54 s), 45603876542 (57 s), 44804837080 (61 s), 44680539790 (74 s) |
 | Suite duration – local (1 worker, slow site) | 453 s for 36 tests | `docs/evidence/2026-11-20-full-run/rca-full-run.md` |
+| Site health check (fix28) | First CI run: healthy on attempt 1 (home page 215 ms, products API 430 ms); tests started without waiting. Waiting path covered by offline self-test (9/9), not yet seen in CI | run 45603876542, `tools/health/` |
 | Scheduled trigger | Fired; due 00:00 UTC, started ~05:20 UTC (GitHub delay, documented) | run 44680539790 |
 
 ## Fault injection and RCA accuracy
@@ -21,7 +22,7 @@ Drafted 2026-11-21 from the evidence in this repository; reviewed by: Tayyab, 20
 | RCA accuracy on known injections | **2/2 correct** – FI-01 TEST_SCRIPT_DEFECT 75%; FI-02 ENVIRONMENT_OR_NETWORK 75% (test-controlled) | `docs/fault-injection/FI-01.md`, `FI-02.md` |
 | False product-defect claims on injections | 0 | same |
 | Human-reviewed patch validation | FI-01: red [44804837080] → 1-line repair → green [44805726674] on the same PR | `FI-01.md` |
-| Classifier regression suite | 19/19 labelled cases (synthetic, includes 8 shaped on real failures) | `npm run rca:selftest` (CI static gate) |
+| Classifier regression suite | 23/23 labelled cases (synthetic, includes 11 shaped on real failures) | `npm run rca:selftest` (CI static gate) |
 
 ### RCA on real (non-injected) failures – first verdict vs. human-reviewed verdict
 | Failure | RCA first verdict | Human-reviewed verdict | First verdict correct? |
@@ -45,10 +46,11 @@ Drafted 2026-11-21 from the evidence in this repository; reviewed by: Tayyab, 20
 | 9 failures on 503 pages/API (23 Nov, manual run 45139042427: AE-22, AE-18, AE-21, AE-02, AE-03b, AE-12, AE-08, AE-15, AE-17) | ENVIRONMENT_OR_NETWORK 85–90% | ENVIRONMENT_OR_NETWORK | ✓ ×9 |
 | AE-10 API 503 before first navigation (23 Nov, manual) | TEST_SCRIPT_DEFECT 75% ("about:blank") | ENVIRONMENT_OR_NETWORK | ✗ |
 | AE-16 many first-party 503s (23 Nov, manual) | TIMING_OR_FLAKINESS 70% | ENVIRONMENT_OR_NETWORK | ✗ |
+| AE-02 503 on /logout mid-run (25 Nov, manual 45603876542, after a healthy pre-run check) | ENVIRONMENT_OR_NETWORK (85% with AI agreement) | ENVIRONMENT_OR_NETWORK | ✓ |
 
-**First-verdict accuracy on real failures: 16/27** (15 fully, 1 category only). The trend improved as
+**First-verdict accuracy on real failures: 17/28** (16 fully, 1 category only). The trend improved as
 corrections became rules: 3/11 in the first live runs (19–20 Nov) vs 4/5 and 9/11 on the two
-overloaded-site runs (23 Nov). Every misclassification was caught in human review, corrected with
+overloaded-site runs (23 Nov) and 1/1 on 25 Nov. Every misclassification was caught in human review, corrected with
 evidence, turned into a rule plus a regression case (self-test 23/23), and – where the results were
 still available – re-analysed correctly. The rule-based baseline still needs human review; it is not
 trusted on its own.
@@ -57,12 +59,12 @@ trusted on its own.
 | Metric | Value | Source |
 |---|---|---|
 | AI model in the RCA pipeline | Google Gemini free tier (`gemini-3.6-flash` via repo variable `AI_MODEL`); Anthropic optional. GitHub Models tried – service retired | `docs/ai-evidence/ai-rca-runs.md` |
-| AI-mode runs | 6 runs / 16 analyses: 9 accepted, 7 safe fallbacks (no credit, retired endpoint, 2× HTTP 503, 1× timeout, 2× truncated reply) – none hid the test result | `ai-rca-runs.md`, `docs/evidence/2026-11-23-*` |
-| AI agreement with baseline | 9/9 accepted analyses agreed (FI-01 TEST_SCRIPT_DEFECT 0.75 → 0.85; 8 ENVIRONMENT_OR_NETWORK on the two overload runs) | runs 44944370864, 45116848024, 45139042427 |
+| AI-mode runs | 7 runs / 17 analyses: 10 accepted, 7 safe fallbacks (no credit, retired endpoint, 2× HTTP 503, 1× timeout, 2× truncated reply) – none hid the test result | `ai-rca-runs.md`, `docs/evidence/2026-11-23-*` |
+| AI agreement with baseline | 10/10 accepted analyses agreed (FI-01 TEST_SCRIPT_DEFECT 0.75 → 0.85; 8 ENVIRONMENT_OR_NETWORK on the two overload runs; 1 ENVIRONMENT_OR_NETWORK on 25 Nov) | runs 44944370864, 45116848024, 45139042427, 45603876542 |
 | AI suggestions rejected by reviewer | 3 – "add retry mechanisms / backoff" (AE-12b, AE-21, AE-22, 23 Nov): CI already retries once; more retries would hide flakiness and load the shared site | `approvals.md` |
 | AI rejections by guardrail | 0 – all non-accepted outcomes were call failures (2 truncated replies fixed in fix21), not invalid answers | audit logs in `docs/evidence/2026-11-2*-*` |
 | AI cost / latency per failure | $0 (free tier); 8.6 s; 2,769 input / 289 output tokens | `docs/evidence/2026-11-22-ai-rca-gemini-accepted/audit-log.jsonl` |
-| AI-assisted authoring | Claude (chat) drafted code/docs; 23 patches; every one reviewed, run and recorded | `docs/ai-evidence/approvals.md` |
+| AI-assisted authoring | Claude (chat) drafted code/docs; 28 patches; every one reviewed, run and recorded | `docs/ai-evidence/approvals.md` |
 | Engineer corrections of AI output | 8 recorded (B1–B8) + FI-01/FI-02 report findings + AI-run findings (merge-diff false CRITICAL, outcome wording, vague location, overstated "inspected the diff") | `prompt-log.md`, `ai-rca-runs.md` |
 
 ## Maintenance and data hygiene

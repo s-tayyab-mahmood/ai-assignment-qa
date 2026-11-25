@@ -1,8 +1,9 @@
-# AI-assisted RCA in CI – run log (2026-11-22 to 2026-11-23)
+# AI-assisted RCA in CI – run log (2026-11-22 to 2026-11-25)
 
-All runs: `workflow_dispatch` on branch `fi-01-ai-rca` (the FI-01 fault re-injected: AE-12 expects
+Runs 1–4: `workflow_dispatch` on branch `fi-01-ai-rca` (the FI-01 fault re-injected: AE-12 expects
 3 × unit price instead of 4 ×), grep `@AE-12`. Pull-request runs never receive an AI credential, so
 AI mode was exercised on a trusted branch. Artifacts: `docs/evidence/2026-11-22-ai-rca-*`.
+Runs 5–7 are scheduled/manual runs of `main` on the live site (`docs/evidence/2026-11-23-*`, `2026-11-25-*`).
 
 | # | Run | Provider / model | What happened | Pipeline behaviour | Final record |
 |---|---|---|---|---|---|
@@ -13,6 +14,7 @@ AI mode was exercised on a trusted branch. Artifacts: `docs/evidence/2026-11-22-
 | 4 | [44944370864](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/44944370864) | gemini / **gemini-3.6-flash** (repo variable `AI_MODEL`), timeout 60 s (`AI_TIMEOUT_MS`) | **Answered; passed schema and evidence-ID checks** | `decision: accepted`; AI agreed with rules | **TEST_SCRIPT_DEFECT 85% – ai-assisted** |
 | 5 | [45116848024](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45116848024) (scheduled, 23 Nov) | gemini / gemini-3.6-flash | Site overloaded (503); 5 failures analysed | 3 accepted (all agreed: ENVIRONMENT_OR_NETWORK), 2 replies truncated mid-JSON → fallback (fixed in fix21) | Reviewer rejected AI suggestion "add retry mechanisms"; AE-10 rules verdict corrected (fix21) |
 | 6 | [45139042427](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45139042427) (manual, 23 Nov) | gemini / gemini-3.6-flash | Site overloaded (503); 11 failures, AI limited to first 5 | 5 accepted (all agreed: ENVIRONMENT_OR_NETWORK); 6 analysed by rules only | Reviewer rejected "retry logic / backoff" suggestions; AE-10 and AE-16 rules verdicts corrected (fix23) |
+| 7 | [45603876542](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45603876542) (manual, 25 Nov, first run with the site health check) | gemini / gemini-3.6-flash | Health check passed; HTTP 503 on `/logout` mid-run, AE-02 passed on retry (flaky) | 1 accepted (agreed: ENVIRONMENT_OR_NETWORK 85%) | Accepted; no change to tests |
 
 ## Run 4 – the accepted AI analysis
 | Item | Value |
