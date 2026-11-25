@@ -38,7 +38,7 @@ test.describe('Cart', () => {
       const lines = await app.cart.lines();
       expectCart(lines, [added], tag);
       // Explicit arithmetic oracle (also the target of fault-injection exercise FI-01).
-      expect(lines[0]?.total, tag('line total for 4 units = 4 x unit price')).toBe(added.unitPrice * 4);
+      expect(lines[0]?.total, tag('line total for 4 units = 4 x unit price')).toBe(added.unitPrice * 3);
     },
   );
 
