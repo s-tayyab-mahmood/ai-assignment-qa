@@ -156,7 +156,18 @@ async function callAnthropic(cfg: AiConfig, system: string, user: string) {
   }
 }
 
-function extractJson(text: string): unknown {
+/** Provider-neutral model call, shared with the self-healing agent (tools/heal). */
+export async function callModel(
+  cfg: AiConfig,
+  system: string,
+  user: string,
+): Promise<{ text: string; usage?: { input_tokens?: number; output_tokens?: number } }> {
+  const call = cfg.provider === 'gemini' ? callGemini : cfg.provider === 'anthropic' ? callAnthropic : null;
+  if (!call) throw new Error(`unsupported AI_PROVIDER "${cfg.provider}"`);
+  return call(cfg, system, user);
+}
+
+export function extractJson(text: string): unknown {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('no JSON object in model output');

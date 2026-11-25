@@ -5,6 +5,7 @@ A Playwright + TypeScript test automation solution for [automationexercise.com](
 - isolated test data that is cleaned up after every test
 - GitHub Actions CI (daily at 05:00 PKT, on pull requests, and on demand)
 - a deterministic failure-diagnostics pipeline, with an optional, guarded AI root-cause-analysis step
+- a self-healing agent that proposes validated fixes for stale locators and test-oracle mistakes – a human reviews and applies every fix
 
 > **Status (2026-11-25):** all 36 tests pass against the live site in CI ([run 44794834130](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/44794834130)); scheduled runs green except on site-overload days (classified as environment); a pre-run site health check now waits for an overloaded site ([run 45603876542](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45603876542)); smoke stability 3/3 (27/27). Fault injections FI-01 and FI-02 executed and reviewed; AI-assisted RCA exercised in CI (Gemini). Results and limits: `docs/scorecard.md`; evidence: `docs/evidence/`.
 
@@ -72,6 +73,8 @@ npm run rca                # build failure bundle + RCA summary → reports/rca/
 | `npm run stability` | 3 consecutive smoke runs → `reports/stability/` |
 | `npm run rca:collect` / `rca:analyze` / `rca` | RCA stages (always exit 0) |
 | `npm run rca:selftest` | Classifier and AI-guardrail regression test (offline) |
+| `npm run heal` | Self-healing agent on the last RCA report → `reports/heal/` (proposals only) |
+| `npm run heal:selftest` | Self-healing policy, guardrails and engine (offline) |
 | `npm run typecheck` / `lint` / `format` | Static quality |
 
 ### Tags
@@ -85,7 +88,7 @@ npm run rca                # build failure bundle + RCA summary → reports/rca/
 .github/workflows/playwright.yml   CI: schedule (00:00 UTC = 05:00 PKT), PR, manual
 config/environment.ts              non-secret settings, ad-host block list
 docs/                              strategy, traceability, architecture, AI policy, FI reports, scorecard, AI evidence
-skills/                            test-design, playwright, rca, review
+skills/                            test-design, playwright, rca, self-healing, review
 agents/orchestrator.md             agent roles, tools, handoffs, thresholds, budgets, exit conditions
 src/pages/                         page and component objects (App aggregates them)
 src/api/                           typed API client + zod schemas
@@ -97,6 +100,7 @@ tests/fault-injection/             FI-02, FI-03 (only with FAULT_INJECTION=1)
 tools/rca/                         collector, classifier, AI analyzer, report, JSON schema, self-test
 tools/stability/                   repeatability runner
 tools/health/                      pre-run site health check + offline self-test
+tools/heal/                        self-healing agent: policy, locator/assertion fixes, validation, patches, self-test
 reports/                           generated output (gitignored)
 ```
 
@@ -128,12 +132,22 @@ The workflow is `.github/workflows/playwright.yml`.
 
 The details are in `skills/rca.md`, `docs/architecture.md` and `docs/ai-policy.md`.
 
+## Self-healing agent in short
+After RCA on a failed run, the agent decides whether a failure may be healed at all, finds a one-line fix, proves it and hands it to a human:
+1. **Policy:** only `LOCATOR_OR_UI_CHANGE` / `TEST_SCRIPT_DEFECT` (confidence ≥ 0.5). Product defects, environment, timing, data, flaky and injected faults are declined – healing them would hide a real problem.
+2. **Fix:** a stale locator is matched against the page's accessibility snapshot at failure (rules first; AI only as a fallback and only from elements that were on the page). A test-oracle mistake gets an AI-proposed one-line change, labelled ⚠️ ASSERTION_CHANGE.
+3. **Proof:** type check, lint and 3/3 isolated runs of the failing test, or the change is discarded.
+4. **Hand-over:** a patch in the `qa-report` artifact (`reports/heal/patches/`) and a job-summary section. Nothing is committed or pushed; the reviewer applies it with `git apply` on a branch and opens a PR.
+
+Details: `skills/self-healing.md`, `agents/orchestrator.md` (agent 5), `docs/fault-injection/FI-04.md`.
+
 ## Fault-injection exercises
 | ID | How | Expected classification | Doc |
 |---|---|---|---|
 | FI-01 | Branch `fi-01-script-fault` (PR, closed unmerged): wrong expected total in AE-12, then a 1-line repair on the same PR (red → green). Branch `fi-01-ai-rca` re-injects it for AI-mode RCA runs | TEST_SCRIPT_DEFECT | docs/fault-injection/FI-01.md, docs/ai-evidence/ai-rca-runs.md |
 | FI-02 | `route.abort` on add-to-cart, local context only | ENVIRONMENT_OR_NETWORK (test-controlled) | docs/fault-injection/FI-02.md |
-| FI-03 | Intermittent delay inside the route handler, `--repeat-each=6` | TIMING_OR_FLAKINESS | docs/fault-injection/FI-03.md |
+| FI-03 | Intermittent delay inside the route handler, `--repeat-each=6` | TIMING_OR_FLAKINESS; self-healing declines | docs/fault-injection/FI-03.md |
+| FI-04 | Branch `fi-04-locator-drift`: AE-18's review-tab locator renamed to text that is not on the page | LOCATOR_OR_UI_CHANGE; self-healing proposes the correct locator | docs/fault-injection/FI-04.md |
 
 ## Limitations and known risks
 - **Live-site variability.** The public site is sometimes slow or overloaded (HTTP 503 "heavy load", requests held >25 s). Such failures are classified ENVIRONMENT_OR_NETWORK by RCA rather than "fixed" in tests; local runs use `WORKERS=1`. The first live runs also exposed five test-code defects, all fixed and documented (`docs/evidence/`, `docs/ai-evidence/prompt-log.md` Part B).

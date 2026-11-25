@@ -37,9 +37,11 @@ The redaction rules are in `src/utils/redact.ts`. They redact keys, authorizatio
 - The model has no tools. Its output is only parsed as JSON and rendered as text; it is never executed.
 - The output is validated with a zod schema and checked against the real evidence IDs. A PRODUCT_DEFECT claim on an injected fault is rejected.
 - PR runs get no secret, so a malicious PR cannot exfiltrate the key.
+- **Self-healing:** the model may only pick a replacement from elements that were on the page (locators) or propose a one-line edit near the failing line (assertions). Code guardrails reject sleeps, timeouts, retries, skips, suppressions, weaker/inverted/removed assertions and copying the observed value into the expectation. Every proposal must then pass type check, lint and 3/3 isolated runs before it is shown, and a human applies it (`skills/self-healing.md`).
 
 ## Human oversight
 - Every RCA record has `status: HYPOTHESIS_PENDING_REVIEW` and `requires_human_approval: true`.
+- The self-healing agent only writes patch files. It never commits, pushes or merges; the reviewer applies a patch on a branch and the normal PR review applies.
 - No agent may merge, push to `main`, change secrets or workflow permissions, or delete data other than its own disposable accounts.
 - Code is accepted only through a PR with the `skills/review.md` checklist and green CI.
 - Decisions are recorded in `docs/ai-evidence/approvals.md`.

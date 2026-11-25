@@ -17,6 +17,7 @@
 - [ ] `npm run verify` and `npm run rca:selftest` pass
 - [ ] The changed test passes in isolation and with `--repeat-each=3`
 - [ ] For repair patches: before/after runs are attached, the RCA record ID is referenced, and the diff is minimal
+- [ ] For self-healing patches: the proof in `heal-summary.md` is 3/3 green with type check and lint; the new locator is the **same** control (check the screenshot); an ASSERTION_CHANGE expectation matches the requirement, not just the observed value
 
 ## Prompt-injection specific checks for RCA
 - [ ] The AI output cites only existing evidence IDs (enforced in code; verify in `audit-log.jsonl`).
