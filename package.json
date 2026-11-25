@@ -25,7 +25,9 @@
     "rca": "npm run rca:collect && npm run rca:analyze",
     "stability": "tsx tools/stability/run.ts",
     "verify": "npm run typecheck && npm run lint && npm run test:list",
-    "rca:selftest": "tsx tools/rca/selftest.ts"
+    "rca:selftest": "tsx tools/rca/selftest.ts",
+    "health": "tsx tools/health/probe.ts",
+    "health:selftest": "tsx tools/health/selftest.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

@@ -9,6 +9,11 @@ on:
         description: 'Optional --grep filter (e.g. @smoke, @P0, @AE-15). Empty = full suite.'
         required: false
         default: ''
+      skip_health_check:
+        description: 'Skip the pre-run site health check and run the tests immediately.'
+        type: boolean
+        required: false
+        default: false
   schedule:
     # 05:00 Asia/Karachi = 00:00 UTC (Pakistan has no DST). GitHub cron is UTC and only runs from
     # the default branch; scheduled runs can start several minutes late under GitHub load.
@@ -25,7 +30,7 @@ permissions:
 jobs:
   qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60 # up to ~30 min waiting for an overloaded site + the suite
     env:
       CI: 'true'
       WORKERS: '2'
@@ -44,7 +49,19 @@ jobs:
         run: npm ci
 
       - name: Static gates (type check, lint, RCA classifier self-test)
-        run: npm run typecheck && npm run lint && npm run rca:selftest
+        run: npm run typecheck && npm run lint && npm run rca:selftest && npm run health:selftest
+
+      - name: Site health check (wait for an overloaded site instead of failing)
+        id: health
+        if: github.event.inputs.skip_health_check != 'true'
+        # A broken checker must never block testing: on a crash the output stays unset and tests run.
+        continue-on-error: true
+        env:
+          # Scheduled/manual: up to 4 attempts, 10 min apart. Pull requests: 1 attempt, no waiting.
+          HEALTH_ATTEMPTS: ${{ github.event_name == 'pull_request' && '1' || '4' }}
+          HEALTH_WAIT_MS: '600000'
+          HEALTH_SLOW_MS: '10000'
+        run: npm run health
 
       - name: Cache Playwright browsers
         uses: actions/cache@v5
@@ -57,6 +74,7 @@ jobs:
 
       - name: Run Playwright
         id: tests
+        if: steps.health.outputs.healthy != 'false'
         # Never stop here: diagnostics must run, and the real result is re-applied in the last step.
         continue-on-error: true
         env:
@@ -70,12 +88,12 @@ jobs:
           fi
 
       - name: Generate deterministic failure bundle
-        if: always()
+        if: always() && steps.health.outputs.healthy != 'false'
         continue-on-error: true
         run: npm run rca:collect
 
       - name: RCA (AI-assisted when configured, deterministic otherwise)
-        if: always()
+        if: always() && steps.health.outputs.healthy != 'false'
         continue-on-error: true
         timeout-minutes: 5
         env:
@@ -103,6 +121,10 @@ jobs:
       - name: Propagate test result
         if: always()
         run: |
+          if [ "${{ steps.health.outputs.healthy }}" = "false" ]; then
+            echo "::error::Site unavailable after the health-check retries - tests were not run (environment problem, not a product verdict). See 'Site health check' in the job summary."
+            exit 1
+          fi
           echo "Test step outcome: ${{ steps.tests.outcome }}"
           if [ "${{ steps.tests.outcome }}" != "success" ]; then
             echo "::error::Playwright tests failed – see RCA summary in the job summary and the qa-report artifact."

@@ -96,6 +96,7 @@ tests/ui|api|integration/          test suites
 tests/fault-injection/             FI-02, FI-03 (only with FAULT_INJECTION=1)
 tools/rca/                         collector, classifier, AI analyzer, report, JSON schema, self-test
 tools/stability/                   repeatability runner
+tools/health/                      pre-run site health check + offline self-test
 reports/                           generated output (gitignored)
 ```
 
@@ -104,7 +105,8 @@ The workflow is `.github/workflows/playwright.yml`.
 - **Triggers:**
   - `schedule: '0 0 * * *'` (05:00 Asia/Karachi; Pakistan has no DST). It runs only from the **default branch**, and GitHub may start it a few minutes late.
   - `pull_request` to `main`
-  - `workflow_dispatch`, with an optional grep
+  - `workflow_dispatch`, with an optional grep and an option to skip the health check
+- **Site health check:** before the tests, CI probes the home page and the products API. If the site is overloaded or slow (>10 s), it waits 10 min and tries again, up to 4 attempts (pull requests: 1 attempt). If the site recovers, tests run; if not, the job fails with "Site unavailable – tests were not run" and the probe table in the job summary. Run it locally with `npm run health`.
 - **Status propagation:** the test step records its outcome. Diagnostics run with `if: always()` and `continue-on-error`, and the final step fails the job only if the tests failed. This means AI or report problems cannot hide a test failure or fake a pass.
 - **Artifacts:** the `qa-report-<run_id>-<attempt>` artifact contains:
   - the HTML, JSON and JUnit reports

@@ -47,8 +47,11 @@ flowchart TB
   T1([schedule 00:00 UTC = 05:00 PKT]) --> J
   T2([pull_request]) --> J
   T3([workflow_dispatch + grep]) --> J
-  J[Job qa] --> G[Static gates<br/>typecheck · lint · rca:selftest]
-  G --> R[Run Playwright<br/>continue-on-error, outcome recorded]
+  J[Job qa] --> G[Static gates<br/>typecheck · lint · rca:selftest · health:selftest]
+  G --> HC{Site health check<br/>2 requests per attempt<br/>healthy?}
+  HC -- no, wait 10 min<br/>max 4 attempts --> HC
+  HC -- still no --> NA[Site unavailable<br/>tests not run<br/>job fails with clear message]
+  HC -- yes --> R[Run Playwright<br/>continue-on-error, outcome recorded]
   R -->|results.json · junit.xml · html<br/>trace · screenshot · video<br/>network/console/cleanup logs| C[rca:collect<br/>deterministic bundle<br/>+ git diff, run URL, SHA]
   C --> D[classify.ts<br/>rule-based hypotheses<br/>evidence for/against<br/>calibrated confidence]
   D --> K{AI_API_KEY present<br/>and not a PR?}
@@ -67,6 +70,7 @@ flowchart TB
 ### Stop conditions and failure safety
 - Every diagnostics step uses `if: always()` and `continue-on-error: true`. The original test outcome is re-applied in the last step, so AI or reporting failures can never hide it, and they can never turn a red run green.
 - `rca:collect` and `rca:analyze` always exit 0. If there is no report, they write a "no report found" summary instead.
+- **Site health check** (`tools/health/probe.ts`) runs before the tests. Each attempt sends two light requests (home page and `/api/productsList`). An attempt is unhealthy on a non-2xx status, the site's "heavy load" page, a wrong API body, a timeout or a response slower than 10 s. Scheduled and manual runs try up to 4 times, 10 min apart (about 30 min of waiting at most); pull requests try once without waiting. If the site never recovers, tests and RCA are skipped and the job fails with "Site unavailable – tests were not run", so the run is never mistaken for a pass or a product failure. The probe table goes to the job summary and `reports/health/`. A crash in the checker itself never blocks testing (tests run). Manual runs can skip the check (`skip_health_check`).
 - Pull-request runs never receive `AI_API_KEY`, because PR code is untrusted. They get the model-free RCA instead.
 - Model calls are bounded at 5 failures per run and 30 s per call by default (repo variable `AI_TIMEOUT_MS`, capped at 60 s). Each call has one attempt, then falls back to the deterministic result. Observed in CI: no credit, a retired endpoint, HTTP 503 overload and a timeout all fell back safely (`docs/ai-evidence/ai-rca-runs.md`).
 
