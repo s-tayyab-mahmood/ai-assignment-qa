@@ -103,7 +103,7 @@ export class ProductDetailsPage {
     // Exception: <label>Quantity:</label> is not associated with the input (no `for`).
     this.quantity = page.locator('#quantity');
     this.addToCartButton = this.info.getByRole('button', { name: 'Add to cart' });
-    this.reviewHeading = page.getByRole('link', { name: 'Write Your Review' });
+    this.reviewHeading = page.getByRole('link', { name: 'Write a Review' });
   }
 
   async read(): Promise<ProductCard> {
