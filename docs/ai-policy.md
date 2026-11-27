@@ -41,6 +41,7 @@ The redaction rules are in `src/utils/redact.ts`. They redact keys, authorizatio
 
 ## Human oversight
 - Every RCA record has `status: HYPOTHESIS_PENDING_REVIEW` and `requires_human_approval: true`.
+- `main` is protected by a GitHub ruleset: no force pushes, no deletion (history and evidence commit IDs cannot be rewritten). Agent changes reach `main` only through a PR that a human reviews and merges (e.g. PR #2, merged after a green run).
 - The self-healing agent only writes patch files. It never commits, pushes or merges; the reviewer applies a patch on a branch and the normal PR review applies.
 - No agent may merge, push to `main`, change secrets or workflow permissions, or delete data other than its own disposable accounts.
 - Code is accepted only through a PR with the `skills/review.md` checklist and green CI.

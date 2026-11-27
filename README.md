@@ -7,7 +7,7 @@ A Playwright + TypeScript test automation solution for [automationexercise.com](
 - a deterministic failure-diagnostics pipeline, with an optional, guarded AI root-cause-analysis step
 - a self-healing agent that proposes validated fixes for stale locators and test-oracle mistakes – a human reviews and applies every fix
 
-> **Status (2026-11-25):** all 36 tests pass against the live site in CI ([run 44794834130](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/44794834130)); scheduled runs green except on site-overload days (classified as environment); a pre-run site health check now waits for an overloaded site ([run 45603876542](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45603876542)); smoke stability 3/3 (27/27). Fault injections FI-01 and FI-02 executed and reviewed; AI-assisted RCA exercised in CI (Gemini). Results and limits: `docs/scorecard.md`; evidence: `docs/evidence/`.
+> **Status (2026-11-27):** all 36 tests pass against the live site in CI ([run 44794834130](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/44794834130); latest full green 36/36 in 42 s, [run 45632579620](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45632579620)); self-healing agent merged (PR #2); scheduled runs green except on site-overload days (classified as environment); a pre-run site health check now waits for an overloaded site ([run 45603876542](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45603876542)); smoke stability 3/3 (27/27). Fault injections FI-01 and FI-02 executed and reviewed; AI-assisted RCA exercised in CI (Gemini). Results and limits: `docs/scorecard.md`; evidence: `docs/evidence/`.
 
 ## Author and AI assistance
 **Author / owner:** Tayyab Mahmood ([s-tayyab-mahmood](https://github.com/s-tayyab-mahmood)).
@@ -149,13 +149,16 @@ Details: `skills/self-healing.md`, `agents/orchestrator.md` (agent 5), `docs/fau
 | FI-03 | Intermittent delay inside the route handler, `--repeat-each=6` | TIMING_OR_FLAKINESS; self-healing declines | docs/fault-injection/FI-03.md |
 | FI-04 | Branch `fi-04-locator-drift`: AE-18's review-tab locator renamed to text that is not on the page | LOCATOR_OR_UI_CHANGE; self-healing proposes the correct locator | docs/fault-injection/FI-04.md |
 
+## Code quality gates
+Strict TypeScript (`strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`); ESLint with `typescript-eslint` and the Playwright plugin, including **type-aware promise rules** (`no-floating-promises`, `await-thenable`, `no-misused-promises`) so a missing `await` fails CI; Prettier format check on code and config; Zod validation of API responses at runtime. `main` is protected against force pushes and deletion; changes from agents arrive through a reviewed PR.
+
 ## Limitations and known risks
 - **Live-site variability.** The public site is sometimes slow or overloaded (HTTP 503 "heavy load", requests held >25 s). Such failures are classified ENVIRONMENT_OR_NETWORK by RCA rather than "fixed" in tests; local runs use `WORKERS=1`. The first live runs also exposed five test-code defects, all fixed and documented (`docs/evidence/`, `docs/ai-evidence/prompt-log.md` Part B).
-- **RCA accuracy.** On real failures, the rule-based RCA's first verdict was right in 22 of 34 cases (3 of 11 in the first live runs, improving as corrections became rules); every miss was caught in human review and turned into a rule plus a regression case (`docs/scorecard.md`). Classifications always require human approval.
+- **RCA accuracy.** On real failures, the rule-based RCA's first verdict was right in 24 of 36 cases (3 of 11 in the first live runs, improving as corrections became rules); every miss was caught in human review and turned into a rule plus a regression case (`docs/scorecard.md`). Classifications always require human approval.
 - **AI provider.** Default is the Google Gemini free tier (rate-limited; free-tier data may be used for training, so prompts carry only redacted synthetic evidence). Provider overloads and timeouts fall back to the rule-based result (`docs/ai-evidence/ai-rca-runs.md`).
   - Most likely spots: the address block format (AE-15/16), the invoice text format (AE-17), the brand-sidebar count span (AE-10), and the recommended carousel (AE-21).
 - **Ads are blocked** by host pattern. If the site adds new ad hosts, extend `blockedThirdPartyHosts`.
 - **Public shared site:** availability and content can change. That is handled by RCA, not by weakening tests.
-- **Schedule timing is best-effort.** GitHub may start scheduled runs late under load. The first scheduled run (2026-11-20) was due at 05:00 PKT (00:00 UTC) and started at about 10:20 PKT (05:20 UTC). Use `workflow_dispatch` when a run is needed at a specific time.
+- **Schedule timing is best-effort.** GitHub may start scheduled runs late under load. The first scheduled run (2026-11-20) was due at 05:00 PKT (00:00 UTC) and started at about 10:20 PKT (05:20 UTC); on 2026-11-26 it started at 11:27 PKT (06:27 UTC). On-the-hour schedules are the most delayed, but the brief fixes 05:00, so the time is kept and the delay documented. Use `workflow_dispatch` when a run is needed at a specific time.
 - **Chromium only;** no visual or accessibility audits. See docs/test-strategy.md §8.
 - **Evidence must be real.** The FI reports, scorecard, traceability status and approvals are deliberately left blank until they are filled from real runs.

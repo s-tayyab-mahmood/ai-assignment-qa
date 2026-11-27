@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format:check": "prettier --check . \"!**/*.md\"",
     "rca:collect": "tsx tools/rca/collect.ts",
     "rca:analyze": "tsx tools/rca/analyze.ts",
     "rca": "npm run rca:collect && npm run rca:analyze",
