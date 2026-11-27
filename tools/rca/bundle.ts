@@ -146,6 +146,8 @@ function buildFailure(spec: PwSpec, test: PwTest): FailureRecord {
     trace: rel(find('trace')?.path),
     screenshot: rel(find('screenshot')?.path),
     video: rel(find('video')?.path),
+    // Accessibility snapshot of the page at failure (Playwright 'error-context'); used by the self-healing agent.
+    errorContext: rel(find('error-context')?.path),
   };
   const repoFile = existsSync(path.join('tests', spec.file)) ? path.join('tests', spec.file) : spec.file;
   const stackTop = clean(err?.stack, 4000)

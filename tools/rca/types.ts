@@ -63,7 +63,7 @@ export interface FailureRecord {
   xhrLog?: Array<Record<string, unknown>>;
   consoleErrors: Array<Record<string, unknown>>;
   cleanup: Array<Record<string, unknown>>;
-  artifacts: { trace?: string; screenshot?: string; video?: string };
+  artifacts: { trace?: string; screenshot?: string; video?: string; errorContext?: string };
   recentCommitsTouchingTest: string[];
   evidence: Evidence[];
 }

@@ -62,15 +62,17 @@ flowchart TB
   V -- yes --> M[merge with baseline<br/>disagreement caps conf 0.6] --> OUT
   OUT[rca-report.json · rca-summary.md<br/>audit-log.jsonl · job summary] --> U[upload artifact qa-report-run_id]
   U --> P[Propagate test outcome<br/>job fails iff tests failed]
+  OUT --> HEAL[Self-healing agent<br/>policy → fix from page snapshot / AI<br/>→ typecheck · lint · 3× isolated run<br/>→ validated patch, files restored]
+  HEAL --> U
   OUT --> H{{Human review<br/>approve / correct classification}}
-  H -->|TEST_SCRIPT / LOCATOR ≥0.6| RP[Repair proposal on branch → PR]
-  RP --> H2{{Reviewer sign-off<br/>skills/review.md}} --> MAIN[(main)]
+  HEAL -->|proposed patch| H2{{Reviewer applies patch on branch<br/>PR + green CI + skills/review.md}} --> MAIN[(main)]
 ```
 
 ### Stop conditions and failure safety
 - Every diagnostics step uses `if: always()` and `continue-on-error: true`. The original test outcome is re-applied in the last step, so AI or reporting failures can never hide it, and they can never turn a red run green.
 - `rca:collect` and `rca:analyze` always exit 0. If there is no report, they write a "no report found" summary instead.
 - **Site health check** (`tools/health/probe.ts`) runs before the tests. Each attempt sends two light requests (home page and `/api/productsList`). An attempt is unhealthy on a non-2xx status, the site's "heavy load" page, a wrong API body, a timeout or a response slower than 10 s. Scheduled and manual runs try up to 4 times, 10 min apart (about 30 min of waiting at most); pull requests try once without waiting. If the site never recovers, tests and RCA are skipped and the job fails with "Site unavailable – tests were not run", so the run is never mistaken for a pass or a product failure. The probe table goes to the job summary and `reports/health/`. A crash in the checker itself never blocks testing (tests run). Manual runs can skip the check (`skip_health_check`).
+- **Self-healing** (`tools/heal`, `skills/self-healing.md`) runs only when tests failed. It declines anything that is not a stale locator or a test-oracle mistake (product defects, environment, timing, data, injected faults, flaky). A change is proposed only after the type check, lint and 3/3 isolated runs pass; the source file is always restored, and nothing is committed or pushed. Value changes are labelled ASSERTION_CHANGE. Step capped at 20 min and 3 attempts.
 - Pull-request runs never receive `AI_API_KEY`, because PR code is untrusted. They get the model-free RCA instead.
 - Model calls are bounded at 5 failures per run and 30 s per call by default (repo variable `AI_TIMEOUT_MS`, capped at 60 s). Each call has one attempt, then falls back to the deterministic result. Observed in CI: no credit, a retired endpoint, HTTP 503 overload and a timeout all fell back safely (`docs/ai-evidence/ai-rca-runs.md`).
 
@@ -87,4 +89,4 @@ See `agents/orchestrator.md` for the full contract. Each agent is paired with:
 | Failure bundle | Collector → Classifier / AI | `failure-bundle.json` |
 | RCA record | RCA → Reviewer / Repair / Reporting | JSON (`tools/rca/schema/rca-record.schema.json`) + Markdown |
 | Audit | RCA → Auditor | JSONL |
-| Repair | Repair agent → Reviewer | Git branch + PR |
+| Heal proposal | Self-healing agent → Reviewer | `reports/heal/patches/*.patch` + `heal-summary.md` + `heal-report.json`; reviewer applies on a branch → PR |

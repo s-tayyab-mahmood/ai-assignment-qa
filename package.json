@@ -27,7 +27,9 @@
     "verify": "npm run typecheck && npm run lint && npm run test:list",
     "rca:selftest": "tsx tools/rca/selftest.ts",
     "health": "tsx tools/health/probe.ts",
-    "health:selftest": "tsx tools/health/selftest.ts"
+    "health:selftest": "tsx tools/health/selftest.ts",
+    "heal": "tsx tools/heal/heal.ts",
+    "heal:selftest": "tsx tools/heal/selftest.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
