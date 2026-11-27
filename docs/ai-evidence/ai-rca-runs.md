@@ -3,7 +3,7 @@
 Runs 1–4: `workflow_dispatch` on branch `fi-01-ai-rca` (the FI-01 fault re-injected: AE-12 expects
 3 × unit price instead of 4 ×), grep `@AE-12`. Pull-request runs never receive an AI credential, so
 AI mode was exercised on a trusted branch. Artifacts: `docs/evidence/2026-11-22-ai-rca-*`.
-Runs 5–7 are scheduled/manual runs of `main`, runs 8–9 manual runs of the self-healing exercise branches, all on the live site (`docs/evidence/2026-11-23-*`, `2026-11-25-*`).
+Runs 5–7 are scheduled/manual runs of `main`, runs 8–9 manual runs of the self-healing exercise branches, run 10 the scheduled run of 26 Nov, all on the live site (`docs/evidence/2026-11-23-*`, `2026-11-25-*`).
 
 | # | Run | Provider / model | What happened | Pipeline behaviour | Final record |
 |---|---|---|---|---|---|
@@ -17,6 +17,7 @@ Runs 5–7 are scheduled/manual runs of `main`, runs 8–9 manual runs of the se
 | 7 | [45603876542](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45603876542) (manual, 25 Nov, first run with the site health check) | gemini / gemini-3.6-flash | Health check passed; HTTP 503 on `/logout` mid-run, AE-02 passed on retry (flaky) | 1 accepted (agreed: ENVIRONMENT_OR_NETWORK 85%) | Accepted; no change to tests |
 | 8 | [45618415023](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45618415023) (manual, FI-04 on `fi-04-locator-drift`) | gemini / gemini-3.6-flash | AE-18 locator not found (injected drift) | 1 accepted, **disagreed**: TEST_SCRIPT_DEFECT (cites the page-object diff) vs rules LOCATOR_OR_UI_CHANGE; capped 0.60 | Accepted the AI's category (more precise); self-healing proposed the locator fix |
 | 9 | [45621043105](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45621043105) (manual, FI-01 on `fi-01-heal`) | gemini / gemini-3.6-flash | AE-12 wrong oracle (injected); AE-12b HTTP 503 mid-run | 2 accepted: AE-12 agreed (TEST_SCRIPT_DEFECT 85%); AE-12b **disagreed** – ENVIRONMENT_OR_NETWORK vs rules TIMING_OR_FLAKINESS, capped 0.60 | AE-12b: AI right; its "handle transient 503s gracefully" advice rejected (retry logic would hide site problems) |
+| 10 | [45768302331](https://github.com/s-tayyab-mahmood/ai-assignment-qa/actions/runs/45768302331) (scheduled, 26 Nov, `main`) | gemini / gemini-3.6-flash | AE-07, AE-24b: site HTTP 503, passed on retry | 0 accepted – 2 safe fallbacks: provider HTTP 503 ("high demand") and a timeout | Rule-based ENVIRONMENT_OR_NETWORK used and labelled; correct. Shows the run does not depend on the AI provider |
 
 ## Run 4 – the accepted AI analysis
 | Item | Value |

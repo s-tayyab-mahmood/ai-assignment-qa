@@ -48,8 +48,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Static gates (type check, lint, RCA classifier self-test)
-        run: npm run typecheck && npm run lint && npm run rca:selftest && npm run health:selftest && npm run heal:selftest
+      - name: Static gates (type check, type-aware lint, format, self-tests)
+        run: npm run typecheck && npm run lint && npm run format:check && npm run rca:selftest && npm run health:selftest && npm run heal:selftest
 
       - name: Site health check (wait for an overloaded site instead of failing)
         id: health

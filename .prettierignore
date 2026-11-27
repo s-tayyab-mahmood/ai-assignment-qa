@@ -3,3 +3,5 @@ playwright-report/
 test-results/
 node_modules/
 package-lock.json
+# Evidence is stored exactly as produced by the tools
+docs/evidence/
